@@ -12,7 +12,7 @@ from modules.wakeword.base import WakeEvent
 
 class FakeWakeWord:
     def wait_for_wake(self) -> WakeEvent:
-        return WakeEvent(wake_word="范小团")
+        return WakeEvent(wake_word="范小团你好")
 
 
 class FakeDisplay:
@@ -48,7 +48,7 @@ class WakeGreetingTests(unittest.TestCase):
         config = AppConfig(
             data={
                 "app": {"cycle_pause_seconds": 0, "max_error_pause_seconds": 0},
-                "wakeword": {"wake_words": ["范小团"]},
+                "wakeword": {"wake_words": ["范小团你好"]},
                 "greeting": {"text": "小朋友你好"},
             },
             path=Path("config/config.example.yaml"),
@@ -64,7 +64,7 @@ class WakeGreetingTests(unittest.TestCase):
 
         self.assertEqual(tts.spoken, ["小朋友你好"])
         self.assertEqual(display.errors, [])
-        self.assertIn("唤醒成功：范小团", display.statuses)
+        self.assertIn("唤醒成功：范小团你好", display.statuses)
 
 
 if __name__ == "__main__":

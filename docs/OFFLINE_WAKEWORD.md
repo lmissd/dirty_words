@@ -7,7 +7,7 @@
 默认唤醒词：
 
 ```text
-范小团
+范小团你好
 ```
 
 待机监听阶段不调用 OpenAI，也不调用 DeepSeek。
@@ -19,7 +19,7 @@
 ↓
 Vosk 中文模型本地识别
 ↓
-检查文本是否包含“范小团”
+检查文本是否接近“范小团你好”
 ↓
 命中后触发后续流程
 ```
@@ -53,17 +53,31 @@ models/vosk-model-small-cn-0.22
 ```yaml
 wakeword:
   engine: "vosk"
+  display_wake_word: "范小团你好"
   wake_words:
-    - "范小团"
+    - "范小团你好"
+  wake_aliases:
+    - "饭小团你好"
+    - "办小团你好"
+    - "但小团你好"
+    - "分小团你好"
+    - "小团你好"
+  fuzzy_enabled: true
+  require_greeting: true
+  greeting_words:
+    - "你好"
+    - "你号"
+  subject_keywords:
+    - "小团"
   model_path: "models/vosk-model-small-cn-0.22"
-  sample_rate: 16000
+  sample_rate: 48000
   channels: 1
-  device: 3
+  device: 1
   block_size: 8000
-  grammar_enabled: true
+  grammar_enabled: false
 ```
 
-如果 `python scripts/list_audio_devices.py` 显示 USB 麦克风不是设备 `3`，请同步修改：
+如果 `python scripts/list_audio_devices.py` 显示 USB 麦克风不是设备 `1`，请同步修改：
 
 ```yaml
 wakeword:
@@ -79,7 +93,7 @@ python main.py --config config/config.yaml --wakeword-only
 对麦克风说：
 
 ```text
-范小团
+范小团你好
 ```
 
 如果显示“唤醒成功”，说明本地离线唤醒可用。
@@ -87,10 +101,37 @@ python main.py --config config/config.yaml --wakeword-only
 ## 测试唤醒后问候
 
 ```bash
+python scripts/generate_greeting_audio.py
 python main.py --config config/config.yaml --wake-greeting --once
 ```
 
-注意：这个模式的唤醒是离线的，但当前问候语播报仍使用配置中的 TTS 服务。
+这个模式的唤醒和问候播放都可以离线完成，不需要 OpenAI Key。默认播放：
+
+```text
+assets/audio/greeting.wav
+```
+
+当前树莓派配置使用 `espeak-ng` 本地中文 TTS 生成这个 wav。首次使用前安装：
+
+```bash
+sudo apt install -y espeak-ng
+```
+
+然后运行唤醒问候命令时，程序会自动生成并播放“小朋友你好”。如果你想换成更自然的声音，也可以把自己录制或其他本地 TTS 生成的 wav 替换为这个文件。
+
+## 唤醒后等待说话
+
+完整分析流程默认会持续待机并支持重复触发。被“范小团你好”唤醒后，系统会先等待用户继续说话：
+
+```yaml
+post_wake_speech:
+  enabled: true
+  timeout_seconds: 30
+```
+
+如果 30 秒内没有检测到新的语音活动，系统不会进入录音、语音识别或大模型分析，而是显示提示并自动返回待机。
+
+这一步只做本地麦克风音量检测，不调用 OpenAI 或 DeepSeek。
 
 ## 测试完整流程
 
@@ -104,7 +145,7 @@ python main.py --config config/config.yaml --once
 本地离线 Vosk 负责唤醒
 OpenAI Speech-to-Text 负责唤醒后的语音转文字
 DeepSeek 负责文明用语分析
-OpenAI TTS 负责语音播报
+本地音频或配置的 TTS 负责语音播报
 ```
 
 ## 局限

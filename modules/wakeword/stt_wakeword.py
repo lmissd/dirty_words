@@ -12,6 +12,7 @@ from modules.utils.config_loader import AppConfig
 from modules.utils.disk import ensure_free_space
 from modules.utils.errors import AudioInputError
 from modules.wakeword.base import WakeEvent, WakeWordDetector
+from modules.wakeword.matcher import WakeMatcherConfig, match_wake_phrase
 
 LOGGER = logging.getLogger(__name__)
 
@@ -22,7 +23,8 @@ class SttWakeWordDetector(WakeWordDetector):
     def __init__(self, config: AppConfig, speech_to_text: SpeechToTextProvider) -> None:
         self.config = config
         self.speech_to_text = speech_to_text
-        self.wake_words = [str(word) for word in config.get("wakeword.wake_words", ["范小团"])]
+        self.wake_words = [str(word) for word in config.get("wakeword.wake_words", ["范小团你好"])]
+        self.matcher_config = WakeMatcherConfig.from_app_config(config)
         self.listen_seconds = float(config.get("wakeword.listen_seconds", 2.5))
         self.idle_pause_seconds = float(config.get("wakeword.idle_pause_seconds", 0.2))
         self.sample_rate = int(config.get("wakeword.sample_rate", config.get("recording.sample_rate", 16000)))
@@ -38,7 +40,7 @@ class SttWakeWordDetector(WakeWordDetector):
             chunk_path = self._record_chunk()
             try:
                 transcript = self.speech_to_text.transcribe(chunk_path)
-                matched = match_wake_word(transcript, self.wake_words)
+                matched = match_wake_phrase(transcript, self.matcher_config)
                 LOGGER.info("唤醒词片段识别：%s", transcript)
                 if matched is not None:
                     LOGGER.info("检测到语音唤醒词：%s", matched)
@@ -75,21 +77,6 @@ class SttWakeWordDetector(WakeWordDetector):
             return output_path
         except Exception as exc:
             raise AudioInputError(f"唤醒词录音失败，请检查麦克风：{exc}") from exc
-
-
-def match_wake_word(text: str, wake_words: list[str]) -> str | None:
-    """Return the configured wake word found in transcribed text."""
-    normalized_text = normalize_text(text)
-    for wake_word in wake_words:
-        if normalize_text(wake_word) in normalized_text:
-            return wake_word
-    return None
-
-
-def normalize_text(text: str) -> str:
-    """Normalize text so Chinese wake words survive punctuation and spaces."""
-    ignored = set(" \t\r\n，。！？!?、,.；;：:\"'“”‘’（）()[]{}<>《》")
-    return "".join(char.lower() for char in text if char not in ignored)
 
 
 def _safe_unlink(path: Path) -> None:

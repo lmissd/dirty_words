@@ -25,32 +25,64 @@ deepseek:
 
 wakeword:
   engine: "vosk"
+  display_wake_word: "范小团你好"
   wake_words:
-    - "范小团"
+    - "范小团你好"
+  wake_aliases:
+    - "饭小团你好"
+    - "办小团你好"
+    - "但小团你好"
+    - "分小团你好"
+    - "小团你好"
+    - "饭小团你号"
+    - "办小团你号"
+    - "但小团你号"
+    - "分小团你号"
+    - "小团你号"
+  fuzzy_enabled: true
+  fuzzy_threshold: 0.62
+  require_greeting: true
+  greeting_words:
+    - "你好"
+    - "你号"
+  subject_keywords:
+    - "小团"
   listen_seconds: 2.5
   idle_pause_seconds: 0.2
-  sample_rate: 16000
+  sample_rate: 48000
   channels: 1
-  device: 3
+  device: 1
   delete_chunks: true
   model_path: "models/vosk-model-small-cn-0.22"
   block_size: 8000
-  grammar_enabled: true
+  grammar_enabled: false
 
 greeting:
   text: "小朋友你好"
+  audio_path: "assets/audio/greeting.wav"
+
+post_wake_speech:
+  enabled: true
+  timeout_seconds: 30
+  sample_rate: 48000
+  channels: 1
+  device: 1
+  block_seconds: 0.25
+  rms_threshold: 500
+  required_blocks: 2
 
 recording:
   engine: "sounddevice"
   duration_seconds: 7
-  sample_rate: 16000
+  sample_rate: 48000
   channels: 1
-  device: 3
+  device: 1
 
 speech_to_text:
-  provider: "openai"
+  provider: "static"
   model: "gpt-4o-mini-transcribe"
   language: "zh"
+  static_text: "这是一段离线测试语音"
 
 llm:
   provider: "deepseek"
@@ -59,11 +91,23 @@ llm:
   max_tokens: 500
 
 tts:
-  provider: "openai"
-  model: "gpt-4o-mini-tts"
-  voice: "alloy"
+  provider: "local_command"
+  model: "espeak-ng"
+  voice: "cmn"
+  speed: 150
   output_format: "wav"
   enabled: true
+  cache_enabled: true
+  command:
+    - "espeak-ng"
+    - "-v"
+    - "cmn"
+    - "-s"
+    - "150"
+    - "-w"
+    - "{output}"
+    - "{text}"
+  fallback_audio_path: "assets/audio/greeting.wav"
 
 playback:
   enabled: true

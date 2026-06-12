@@ -28,6 +28,8 @@ recordings/*
 !recordings/.gitkeep
 assets/generated/*
 !assets/generated/.gitkeep
+assets/audio/*
+!assets/audio/.gitkeep
 models/*
 !models/.gitkeep
 *.log

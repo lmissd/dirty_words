@@ -54,7 +54,7 @@ SSH：开启
 
 ## 核心功能
 
-- 语音唤醒：当前用户希望默认唤醒词为“范小团”。第一阶段先使用 STT 语音唤醒方案，后续可替换为离线关键词唤醒。
+- 语音唤醒：当前用户希望默认触发句为“范小团你好”。待机唤醒应使用本地离线方案，后续才调用云端服务。
 - 录音：唤醒成功后录制 5-10 秒临时音频。
 - 语音识别：调用云端 Speech-to-Text 服务，推荐 OpenAI Speech-to-Text。
 - 文明分析：调用 GPT 类大模型，返回 JSON，包括是否文明、评分、原因和建议。
@@ -134,8 +134,36 @@ API Key、树莓派密码和其他敏感信息不写入代码、不写入 README
 
 ## 当前下一步
 
-当前 USB 音响麦克风一体设备在树莓派 ALSA 中识别为 `card 3, device 0`，录音和播放测试已经可以听到回放。下一步在树莓派上复制 `config/raspberry-pi.example.yaml` 为 `config/config.yaml`，配置 OpenAI API Key，测试 `python main.py --config config/config.yaml --wakeword-only`，说“范小团”触发语音唤醒。
+当前 USB 音响麦克风一体设备在树莓派 ALSA 中识别为 `card 3, device 0`，Python sounddevice 中识别为设备 `1`，采样率使用 `48000`，录音和播放测试已经可以听到回放。测试离线唤醒时运行 `python main.py --config config/config.yaml --wakeword-only`，说“范小团你好”触发。
 
-用户希望先实现第一步唤醒反馈：识别到“范小团”后暂时不进入脏话检测流程，只显示唤醒成功并播放“小朋友你好”。对应运行命令为 `python main.py --config config/config.yaml --wake-greeting --once`。
+用户希望先实现第一步唤醒反馈：识别到“范小团你好”后暂时不进入脏话检测流程，只显示唤醒成功并播放“小朋友你好”。对应运行命令为 `python main.py --config config/config.yaml --wake-greeting --once`。
 
-用户进一步明确希望“范小团”的待机唤醒在本地离线完成，只有被唤醒后再调用云端服务做后续识别和文明分析。当前实现方向是新增 `wakeword.engine: "vosk"`，使用 Vosk 中文离线模型 `models/vosk-model-small-cn-0.22` 在树莓派本地监听唤醒词。
+用户进一步明确希望“范小团”的待机唤醒在本地离线完成，只有被唤醒后再调用云端服务做后续识别和文明分析。当前实现方向是新增 `wakeword.engine: "vosk"`，使用 Vosk 中文离线模型 `models/vosk-model-small-cn-0.22` 在树莓派本地监听唤醒词。用户希望触发句改为“范小团你好”，并支持模糊识别：识别文本需要包含“你好/你号”类问候，并且出现“小团”或接近“范小团”的词。
+
+用户希望唤醒问候也不要依赖 OpenAI Key。当前方向是新增 `tts.provider: "local_audio"`，问候模式播放本地 `assets/audio/greeting.wav`。如果没有真人语音文件，先用 `scripts/generate_greeting_audio.py` 生成离线提示音占位；后续可替换为真正的“小朋友你好”录音。
+
+用户进一步要求问候要真正说出“小朋友你好”，而不是提示音。当前方向是新增 `tts.provider: "local_command"`，通过树莓派本地 `espeak-ng` 生成 `assets/audio/greeting.wav` 并播放。该方案完全离线，但音色会偏机器人感。
+
+用户要求运行逻辑为持续待机、可重复触发。被“范小团你好”唤醒后，如果 30 秒内没有检测到新的语音活动，系统自动恢复待机，不进入后续录音、语音识别或大模型分析。该逻辑通过 `post_wake_speech.timeout_seconds: 30` 配置。
+
+## 当前已验证状态
+
+截至 2026-06-13，树莓派 `yuangungun` 上的当前阶段目标是测试离线唤醒问候闭环：持续待机，用户说“范小团你好”，本地 Vosk 离线识别唤醒，树莓派通过本地 `espeak-ng` TTS 播放“小朋友你好”，随后回到待机继续监听。这个阶段暂时不需要 OpenAI API Key，也暂时不进入文明分析流程。
+
+树莓派项目目录为 `/home/pi/dirty_words`，虚拟环境为 `/home/pi/.venv`。当前测试命令：
+
+```bash
+cd ~/dirty_words
+source ~/.venv/bin/activate
+python main.py --config config/config.yaml --wake-greeting
+```
+
+如果再次出现 `Invalid number of channels [PaErrorCode -9998]`，优先检查是否有旧的唤醒测试进程占用麦克风。可用下面命令清理后重试：
+
+```bash
+pkill -9 -f "main.py --config config/config.yaml --wake-greeting"
+fuser -v /dev/snd/* 2>&1 || true
+python scripts/list_audio_devices.py
+```
+
+期望 `python scripts/list_audio_devices.py` 能看到 USB 设备为 `1 in, 2 out`。如果显示 `0 in, 2 out`，通常说明麦克风被旧进程占用或 USB 音频设备需要重新插拔。

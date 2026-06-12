@@ -13,10 +13,14 @@ from modules.llm.base import CivilLanguageAnalyzer
 from modules.llm.deepseek_civil_analyzer import DeepSeekCivilLanguageAnalyzer
 from modules.llm.openai_civil_analyzer import OpenAICivilLanguageAnalyzer
 from modules.recorder.base import AudioRecorder, RecordedAudio
+from modules.recorder.speech_activity import SpeechActivityDetector
 from modules.recorder.sounddevice_recorder import SoundDeviceRecorder
 from modules.speech_to_text.base import SpeechToTextProvider
 from modules.speech_to_text.openai_stt import OpenAISpeechToText
+from modules.speech_to_text.static_stt import StaticSpeechToText
 from modules.tts.base import TextToSpeechProvider
+from modules.tts.local_command_tts import LocalCommandTextToSpeech
+from modules.tts.local_audio_tts import LocalAudioTextToSpeech
 from modules.tts.openai_tts import OpenAITextToSpeech
 from modules.utils.audio_player import AudioPlayer
 from modules.utils.config_loader import AppConfig, load_config
@@ -42,6 +46,7 @@ class CivilLanguageRobotApp:
         analyzer: CivilLanguageAnalyzer,
         display: Display,
         tts: TextToSpeechProvider,
+        speech_activity: SpeechActivityDetector | None = None,
     ) -> None:
         self.config = config
         self.wakeword = wakeword
@@ -50,6 +55,7 @@ class CivilLanguageRobotApp:
         self.analyzer = analyzer
         self.display = display
         self.tts = tts
+        self.speech_activity = speech_activity
         self._logger = logging.getLogger(self.__class__.__name__)
 
     def run_forever(self) -> None:
@@ -63,8 +69,11 @@ class CivilLanguageRobotApp:
         """Run one full interaction cycle and recover from handled errors."""
         audio: RecordedAudio | None = None
         try:
-            self.display.show_standby(self.config.get("wakeword.wake_words", []))
+            self.display.show_standby(_display_wake_words(self.config))
             self.wakeword.wait_for_wake()
+
+            if not self._wait_for_post_wake_speech():
+                return
 
             self.display.show_status("已唤醒，开始录音。")
             audio = self.recorder.record()
@@ -103,6 +112,23 @@ class CivilLanguageRobotApp:
         except OSError as exc:
             self._logger.warning("删除临时录音失败：%s", exc)
 
+    def _wait_for_post_wake_speech(self) -> bool:
+        enabled = bool(self.config.get("post_wake_speech.enabled", True))
+        if not enabled:
+            return True
+
+        timeout_seconds = float(self.config.get("post_wake_speech.timeout_seconds", 30))
+        if self.speech_activity is None:
+            self._logger.warning("未配置语音活动检测器，跳过唤醒后等待语音。")
+            return True
+
+        self.display.show_status(f"已唤醒，请在 {int(timeout_seconds)} 秒内说话。")
+        if self.speech_activity.wait_for_speech(timeout_seconds):
+            return True
+
+        self.display.show_status("没有听到新的语音，返回待机。")
+        return False
+
 
 class WakeGreetingApp:
     """Run wake word detection and greet the child without downstream analysis."""
@@ -130,7 +156,7 @@ class WakeGreetingApp:
     def run_once(self) -> None:
         """Wait for one wake event, speak the greeting, and return."""
         try:
-            wake_words = list(self.config.get("wakeword.wake_words", []))
+            wake_words = _display_wake_words(self.config)
             greeting_text = str(self.config.get("greeting.text", "小朋友你好"))
 
             self.display.show_standby(wake_words)
@@ -168,6 +194,7 @@ def build_app(config_path: Path) -> CivilLanguageRobotApp:
         analyzer=_build_analyzer(config),
         display=display,
         tts=_build_tts(config, audio_player),
+        speech_activity=_build_speech_activity(config),
     )
 
 
@@ -198,7 +225,7 @@ def run_wakeword_test(config_path: Path) -> None:
     speech_to_text = _build_speech_to_text(config) if wakeword_engine == "stt" else None
     wakeword = _build_wakeword(config, speech_to_text)
 
-    display.show_standby(list(config.get("wakeword.wake_words", [])))
+    display.show_standby(_display_wake_words(config))
     event = wakeword.wait_for_wake()
     display.show_status(f"唤醒成功：{event.wake_word}")
 
@@ -229,10 +256,18 @@ def _build_recorder(config: AppConfig) -> AudioRecorder:
     raise ConfigurationError(f"暂不支持的录音引擎：{engine}")
 
 
+def _build_speech_activity(config: AppConfig) -> SpeechActivityDetector | None:
+    if not bool(config.get("post_wake_speech.enabled", True)):
+        return None
+    return SpeechActivityDetector(config)
+
+
 def _build_speech_to_text(config: AppConfig) -> SpeechToTextProvider:
     provider = str(config.get("speech_to_text.provider", "openai")).lower()
     if provider == "openai":
         return OpenAISpeechToText(config)
+    if provider in {"static", "offline_stub"}:
+        return StaticSpeechToText(config)
     raise ConfigurationError(f"暂不支持的语音识别供应商：{provider}")
 
 
@@ -249,6 +284,10 @@ def _build_tts(config: AppConfig, audio_player: AudioPlayer) -> TextToSpeechProv
     provider = str(config.get("tts.provider", "openai")).lower()
     if provider == "openai":
         return OpenAITextToSpeech(config, audio_player)
+    if provider == "local_command":
+        return LocalCommandTextToSpeech(config, audio_player)
+    if provider == "local_audio":
+        return LocalAudioTextToSpeech(config, audio_player)
     raise ConfigurationError(f"暂不支持的 TTS 供应商：{provider}")
 
 
@@ -263,3 +302,10 @@ def _build_display(config: AppConfig) -> Display:
 
 def _format_tts_text(reason: str, suggestion: str) -> str:
     return f"检测完成。{reason}。建议：{suggestion}"
+
+
+def _display_wake_words(config: AppConfig) -> list[str]:
+    display_wake_word = config.get("wakeword.display_wake_word", None)
+    if display_wake_word:
+        return [str(display_wake_word)]
+    return list(config.get("wakeword.wake_words", []))

@@ -119,7 +119,7 @@ python main.py --config config/config.yaml --wakeword-only
 默认语音唤醒词是：
 
 ```text
-范小团
+范小团你好
 ```
 
 当前树莓派配置默认使用 Vosk 本地离线唤醒。首次使用前需要下载中文模型：
@@ -132,14 +132,24 @@ python main.py --config config/config.yaml --wakeword-only
 如果只想测试“唤醒后问候”，不进入文明分析流程：
 
 ```bash
+python scripts/generate_greeting_audio.py
 python main.py --config config/config.yaml --wake-greeting --once
 ```
 
-听到或识别到“范小团”后，系统会显示唤醒成功，并播报：
+听到或识别到“范小团你好”后，系统会显示唤醒成功，并播报：
 
 ```text
 小朋友你好
 ```
+
+当前树莓派配置默认使用本地音频 `assets/audio/greeting.wav` 做问候播放，不需要 OpenAI Key。
+如果要让它真正说出“小朋友你好”，请在树莓派安装本地 TTS：
+
+```bash
+sudo apt install -y espeak-ng
+```
+
+完整分析流程默认是持续待机、重复触发。被“范小团你好”唤醒后，如果 30 秒内没有检测到新的语音活动，会自动返回待机，不进入语音识别和大模型分析。
 
 ## 文档
 

@@ -10,7 +10,7 @@ from pathlib import Path
 from modules.utils.config_loader import AppConfig
 from modules.utils.errors import AudioInputError, ConfigurationError
 from modules.wakeword.base import WakeEvent, WakeWordDetector
-from modules.wakeword.stt_wakeword import match_wake_word
+from modules.wakeword.matcher import WakeMatcherConfig, match_wake_phrase
 
 LOGGER = logging.getLogger(__name__)
 
@@ -20,7 +20,8 @@ class VoskWakeWordDetector(WakeWordDetector):
 
     def __init__(self, config: AppConfig) -> None:
         self.config = config
-        self.wake_words = [str(word) for word in config.get("wakeword.wake_words", ["范小团"])]
+        self.wake_words = [str(word) for word in config.get("wakeword.wake_words", ["范小团你好"])]
+        self.matcher_config = WakeMatcherConfig.from_app_config(config)
         self.sample_rate = int(config.get("wakeword.sample_rate", config.get("recording.sample_rate", 16000)))
         self.channels = int(config.get("wakeword.channels", config.get("recording.channels", 1)))
         self.device = config.get("wakeword.device", config.get("recording.device", None))
@@ -40,7 +41,7 @@ class VoskWakeWordDetector(WakeWordDetector):
             raise ConfigurationError("缺少 Vosk 依赖，请先执行 pip install -r requirements.txt") from exc
 
         recognizer = self._build_recognizer(KaldiRecognizer)
-        LOGGER.info("开始 Vosk 本地离线唤醒监听：%s", self.wake_words)
+        LOGGER.info("开始 Vosk 本地离线唤醒监听：%s", self.matcher_config.display_wake_word)
 
         try:
             with sd.RawInputStream(
@@ -54,7 +55,7 @@ class VoskWakeWordDetector(WakeWordDetector):
                 while True:
                     data = self._audio_queue.get()
                     text = self._recognize_chunk(recognizer, data)
-                    matched = match_wake_word(text, self.wake_words)
+                    matched = match_wake_phrase(text, self.matcher_config)
                     if matched is not None:
                         LOGGER.info("检测到本地离线唤醒词：%s", matched)
                         return WakeEvent(wake_word=matched)

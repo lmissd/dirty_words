@@ -11,7 +11,7 @@
 默认唤醒词：
 
 ```text
-范小团
+范小团你好
 ```
 
 这个方案适合快速验证完整闭环，但它会持续调用云端语音识别 API。现在项目已新增 Vosk 本地离线唤醒，长期待机建议优先使用 `wakeword.engine: "vosk"`。
@@ -86,7 +86,7 @@ python main.py --config config/config.yaml --wakeword-only
 运行后对着麦克风说：
 
 ```text
-范小团
+范小团你好
 ```
 
 如果终端显示“唤醒成功”，说明语音唤醒链路已打通。
@@ -100,7 +100,7 @@ python main.py --config config/config.yaml --once
 流程：
 
 ```text
-说“范小团”
+说“范小团你好”
 等待系统提示已唤醒
 继续说一句要分析的话
 系统转文字
@@ -111,7 +111,7 @@ python main.py --config config/config.yaml --once
 
 ## 测试唤醒问候
 
-如果只想测试“范小团”触发后的问候，不进入文明分析：
+如果只想测试“范小团你好”触发后的问候，不进入文明分析：
 
 ```bash
 python main.py --config config/config.yaml --wake-greeting --once
@@ -120,7 +120,7 @@ python main.py --config config/config.yaml --wake-greeting --once
 流程：
 
 ```text
-说“范小团”
+说“范小团你好”
 系统显示“唤醒成功”
 系统播报“小朋友你好”
 程序结束
