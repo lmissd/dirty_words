@@ -11,6 +11,8 @@ env/
 .env
 .env.*
 !.env.example
+LOCAL_CREDENTIALS.md
+*.private.md
 
 # OS/editor files
 .DS_Store
@@ -24,4 +26,3 @@ recordings/
 *.wav
 *.mp3
 *.m4a
-
