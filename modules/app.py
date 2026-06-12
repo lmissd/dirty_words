@@ -103,6 +103,52 @@ class CivilLanguageRobotApp:
             self._logger.warning("删除临时录音失败：%s", exc)
 
 
+class WakeGreetingApp:
+    """Run wake word detection and greet the child without downstream analysis."""
+
+    def __init__(
+        self,
+        config: AppConfig,
+        wakeword: WakeWordDetector,
+        display: Display,
+        tts: TextToSpeechProvider,
+    ) -> None:
+        self.config = config
+        self.wakeword = wakeword
+        self.display = display
+        self.tts = tts
+        self._logger = logging.getLogger(self.__class__.__name__)
+
+    def run_forever(self) -> None:
+        """Keep greeting after each wake event until interrupted."""
+        self._logger.info("唤醒问候模式启动。")
+        while True:
+            self.run_once()
+            time.sleep(float(self.config.get("app.cycle_pause_seconds", 2)))
+
+    def run_once(self) -> None:
+        """Wait for one wake event, speak the greeting, and return."""
+        try:
+            wake_words = list(self.config.get("wakeword.wake_words", []))
+            greeting_text = str(self.config.get("greeting.text", "小朋友你好"))
+
+            self.display.show_standby(wake_words)
+            event = self.wakeword.wait_for_wake()
+            self.display.show_status(f"唤醒成功：{event.wake_word}")
+
+            self._logger.info("播放问候语：%s", greeting_text)
+            self.tts.speak(greeting_text)
+            self.display.show_status("问候完成，返回待机。")
+        except RobotError as exc:
+            self._logger.warning("唤醒问候流程发生可恢复错误：%s", exc)
+            self.display.show_error(str(exc))
+            time.sleep(float(self.config.get("app.max_error_pause_seconds", 5)))
+        except Exception:
+            self._logger.exception("唤醒问候流程发生未知错误。")
+            self.display.show_error("问候流程遇到未知错误，正在返回待机。")
+            time.sleep(float(self.config.get("app.max_error_pause_seconds", 5)))
+
+
 def build_app(config_path: Path) -> CivilLanguageRobotApp:
     """Build the application from configuration."""
     config = load_config(config_path)
@@ -120,6 +166,24 @@ def build_app(config_path: Path) -> CivilLanguageRobotApp:
         speech_to_text=speech_to_text,
         analyzer=_build_analyzer(config),
         display=display,
+        tts=_build_tts(config, audio_player),
+    )
+
+
+def build_wake_greeting_app(config_path: Path) -> WakeGreetingApp:
+    """Build the wake-greeting application from configuration."""
+    config = load_config(config_path)
+    setup_logging(config)
+    LOGGER.info("唤醒问候配置加载完成：%s", config_path)
+
+    wakeword_engine = str(config.get("wakeword.engine", "console")).lower()
+    speech_to_text = _build_speech_to_text(config) if wakeword_engine == "stt" else None
+    audio_player = AudioPlayer(config)
+
+    return WakeGreetingApp(
+        config=config,
+        wakeword=_build_wakeword(config, speech_to_text),
+        display=_build_display(config),
         tts=_build_tts(config, audio_player),
     )
 

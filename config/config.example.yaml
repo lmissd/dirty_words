@@ -35,6 +35,9 @@ wakeword:
   device: null
   delete_chunks: true
 
+greeting:
+  text: "小朋友你好"
+
 recording:
   engine: "sounddevice"
   duration_seconds: 7

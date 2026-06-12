@@ -7,7 +7,7 @@ import logging
 import sys
 from pathlib import Path
 
-from modules.app import build_app, run_wakeword_test
+from modules.app import build_app, build_wake_greeting_app, run_wakeword_test
 from modules.utils.errors import RobotError
 
 
@@ -29,6 +29,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Only test wake word detection and exit after one wake event.",
     )
+    parser.add_argument(
+        "--wake-greeting",
+        action="store_true",
+        help="Wake on the configured word, speak greeting text, and skip analysis.",
+    )
     return parser.parse_args()
 
 
@@ -39,6 +44,14 @@ def main() -> int:
     try:
         if args.wakeword_only:
             run_wakeword_test(Path(args.config))
+            return 0
+
+        if args.wake_greeting:
+            app = build_wake_greeting_app(Path(args.config))
+            if args.once:
+                app.run_once()
+            else:
+                app.run_forever()
             return 0
 
         app = build_app(Path(args.config))

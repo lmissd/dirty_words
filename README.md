@@ -122,6 +122,18 @@ python main.py --config config/config.yaml --wakeword-only
 范小团
 ```
 
+如果只想测试“唤醒后问候”，不进入文明分析流程：
+
+```bash
+python main.py --config config/config.yaml --wake-greeting --once
+```
+
+听到或识别到“范小团”后，系统会显示唤醒成功，并播报：
+
+```text
+小朋友你好
+```
+
 ## 文档
 
 - [项目总规范](docs/PROJECT_SPEC.md)

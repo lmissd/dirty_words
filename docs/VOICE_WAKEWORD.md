@@ -102,3 +102,26 @@ python main.py --config config/config.yaml --once
 系统显示结果
 系统语音播报建议
 ```
+
+## 测试唤醒问候
+
+如果只想测试“范小团”触发后的问候，不进入文明分析：
+
+```bash
+python main.py --config config/config.yaml --wake-greeting --once
+```
+
+流程：
+
+```text
+说“范小团”
+系统显示“唤醒成功”
+系统播报“小朋友你好”
+程序结束
+```
+
+如果想持续待机并重复问候：
+
+```bash
+python main.py --config config/config.yaml --wake-greeting
+```
