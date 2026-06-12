@@ -71,6 +71,7 @@ nano .env
 
 ```text
 OPENAI_API_KEY=你的 OpenAI API Key
+DEEPSEEK_API_KEY=你的 DeepSeek API Key
 ```
 
 编辑 `config/config.yaml`，根据麦克风、屏幕和喇叭情况调整参数。

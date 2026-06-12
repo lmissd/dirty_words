@@ -74,6 +74,7 @@ Copy-Item .env.example .env
 
 ```text
 OPENAI_API_KEY=你的 OpenAI API Key
+DEEPSEEK_API_KEY=你的 DeepSeek API Key
 ```
 
 不要把真实 API Key、树莓派密码或其他凭据提交到仓库。
@@ -126,5 +127,6 @@ python main.py --config config/config.yaml --wakeword-only
 - [项目总规范](docs/PROJECT_SPEC.md)
 - [架构说明](docs/ARCHITECTURE.md)
 - [语音唤醒测试说明](docs/VOICE_WAKEWORD.md)
+- [DeepSeek API 配置说明](docs/DEEPSEEK.md)
 - [树莓派部署说明](docs/DEPLOYMENT_RASPBERRY_PI.md)
 - [安全说明](docs/SECURITY.md)

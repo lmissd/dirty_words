@@ -17,6 +17,12 @@ openai:
   timeout_seconds: 30
   max_retries: 2
 
+deepseek:
+  api_key_env: "DEEPSEEK_API_KEY"
+  base_url: "https://api.deepseek.com"
+  timeout_seconds: 30
+  max_retries: 2
+
 wakeword:
   engine: "stt"
   wake_words:
@@ -41,9 +47,10 @@ speech_to_text:
   language: "zh"
 
 llm:
-  provider: "openai"
-  model: "gpt-4o-mini"
+  provider: "deepseek"
+  model: "deepseek-v4-flash"
   temperature: 0.2
+  max_tokens: 500
 
 tts:
   provider: "openai"

@@ -23,6 +23,13 @@ JSON 字段：
 - score: integer，0 到 100，越高越文明
 - reason: string，简短说明问题原因或表扬原因
 - suggestion: string，给出更文明的中文表达建议
+示例 JSON：
+{
+  "civilized": false,
+  "score": 20,
+  "reason": "存在侮辱性表达",
+  "suggestion": "请尝试使用更加尊重对方的表达方式"
+}
 """
 
 
@@ -37,11 +44,13 @@ class OpenAICivilLanguageAnalyzer(CivilLanguageAnalyzer):
         """Analyze text and parse the model JSON response."""
         model = str(self.config.get("llm.model", "gpt-4o-mini"))
         temperature = float(self.config.get("llm.temperature", 0.2))
+        max_tokens = int(self.config.get("llm.max_tokens", 500))
 
         try:
             response = self.client.chat.completions.create(
                 model=model,
                 temperature=temperature,
+                max_tokens=max_tokens,
                 response_format={"type": "json_object"},
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},

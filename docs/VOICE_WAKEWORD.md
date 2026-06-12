@@ -41,7 +41,10 @@ cp .env.example .env
 
 ```text
 OPENAI_API_KEY=你的 OpenAI API Key
+DEEPSEEK_API_KEY=你的 DeepSeek API Key
 ```
+
+当前树莓派示例配置中，语音识别和 TTS 仍使用 OpenAI，文明用语分析使用 DeepSeek。
 
 ## 确认 Python 音频设备编号
 

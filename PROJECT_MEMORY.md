@@ -75,7 +75,8 @@ SSH：开启
 
 - Python 3.11+
 - Raspberry Pi OS 64-bit
-- OpenAI API 或兼容云端 API
+- OpenAI API 用于语音识别和 TTS
+- DeepSeek API 可用于文明用语分析
 - Git + GitHub 版本控制
 - systemd 后台自启动
 

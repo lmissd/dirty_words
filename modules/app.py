@@ -10,6 +10,7 @@ from modules.display.base import Display
 from modules.display.console_display import ConsoleDisplay
 from modules.display.tkinter_display import TkinterDisplay
 from modules.llm.base import CivilLanguageAnalyzer
+from modules.llm.deepseek_civil_analyzer import DeepSeekCivilLanguageAnalyzer
 from modules.llm.openai_civil_analyzer import OpenAICivilLanguageAnalyzer
 from modules.recorder.base import AudioRecorder, RecordedAudio
 from modules.recorder.sounddevice_recorder import SoundDeviceRecorder
@@ -172,6 +173,8 @@ def _build_analyzer(config: AppConfig) -> CivilLanguageAnalyzer:
     provider = str(config.get("llm.provider", "openai")).lower()
     if provider == "openai":
         return OpenAICivilLanguageAnalyzer(config)
+    if provider == "deepseek":
+        return DeepSeekCivilLanguageAnalyzer(config)
     raise ConfigurationError(f"暂不支持的大模型供应商：{provider}")
 
 
