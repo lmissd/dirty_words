@@ -34,6 +34,9 @@ wakeword:
   channels: 1
   device: null
   delete_chunks: true
+  model_path: "models/vosk-model-small-cn-0.22"
+  block_size: 8000
+  grammar_enabled: true
 
 greeting:
   text: "小朋友你好"

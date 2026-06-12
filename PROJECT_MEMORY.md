@@ -71,6 +71,10 @@ SSH：开启
 - 所有 API 密钥统一管理
 - 所有功能组件解耦
 
+## 协作规则
+
+每完成一个模块或阶段性功能后，先交给用户在本地或树莓派上验证是否可行。用户确认可行后，再询问用户是否要提交 Git。不要在功能刚改完、用户尚未验证前直接提交。
+
 ## 技术选择
 
 - Python 3.11+
@@ -133,3 +137,5 @@ API Key、树莓派密码和其他敏感信息不写入代码、不写入 README
 当前 USB 音响麦克风一体设备在树莓派 ALSA 中识别为 `card 3, device 0`，录音和播放测试已经可以听到回放。下一步在树莓派上复制 `config/raspberry-pi.example.yaml` 为 `config/config.yaml`，配置 OpenAI API Key，测试 `python main.py --config config/config.yaml --wakeword-only`，说“范小团”触发语音唤醒。
 
 用户希望先实现第一步唤醒反馈：识别到“范小团”后暂时不进入脏话检测流程，只显示唤醒成功并播放“小朋友你好”。对应运行命令为 `python main.py --config config/config.yaml --wake-greeting --once`。
+
+用户进一步明确希望“范小团”的待机唤醒在本地离线完成，只有被唤醒后再调用云端服务做后续识别和文明分析。当前实现方向是新增 `wakeword.engine: "vosk"`，使用 Vosk 中文离线模型 `models/vosk-model-small-cn-0.22` 在树莓派本地监听唤醒词。

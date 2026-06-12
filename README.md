@@ -122,6 +122,13 @@ python main.py --config config/config.yaml --wakeword-only
 范小团
 ```
 
+当前树莓派配置默认使用 Vosk 本地离线唤醒。首次使用前需要下载中文模型：
+
+```bash
+python scripts/download_vosk_model.py
+python main.py --config config/config.yaml --wakeword-only
+```
+
 如果只想测试“唤醒后问候”，不进入文明分析流程：
 
 ```bash
@@ -139,6 +146,7 @@ python main.py --config config/config.yaml --wake-greeting --once
 - [项目总规范](docs/PROJECT_SPEC.md)
 - [架构说明](docs/ARCHITECTURE.md)
 - [语音唤醒测试说明](docs/VOICE_WAKEWORD.md)
+- [本地离线唤醒说明](docs/OFFLINE_WAKEWORD.md)
 - [DeepSeek API 配置说明](docs/DEEPSEEK.md)
 - [树莓派部署说明](docs/DEPLOYMENT_RASPBERRY_PI.md)
 - [安全说明](docs/SECURITY.md)

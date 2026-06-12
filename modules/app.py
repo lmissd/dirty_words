@@ -25,6 +25,7 @@ from modules.utils.logging_setup import setup_logging
 from modules.wakeword.base import WakeWordDetector
 from modules.wakeword.console_wakeword import ConsoleWakeWordDetector
 from modules.wakeword.stt_wakeword import SttWakeWordDetector
+from modules.wakeword.vosk_wakeword import VoskWakeWordDetector
 
 LOGGER = logging.getLogger(__name__)
 
@@ -216,6 +217,8 @@ def _build_wakeword(
         if speech_to_text is None:
             raise ConfigurationError("STT 唤醒需要先配置语音识别模块。")
         return SttWakeWordDetector(config, speech_to_text)
+    if engine in {"vosk", "local"}:
+        return VoskWakeWordDetector(config)
     raise ConfigurationError(f"暂不支持的唤醒词引擎：{engine}")
 
 

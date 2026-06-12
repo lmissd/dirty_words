@@ -24,7 +24,7 @@ deepseek:
   max_retries: 2
 
 wakeword:
-  engine: "stt"
+  engine: "vosk"
   wake_words:
     - "范小团"
   listen_seconds: 2.5
@@ -33,6 +33,9 @@ wakeword:
   channels: 1
   device: 3
   delete_chunks: true
+  model_path: "models/vosk-model-small-cn-0.22"
+  block_size: 8000
+  grammar_enabled: true
 
 greeting:
   text: "小朋友你好"
