@@ -1,0 +1,59 @@
+app:
+  name: "文明用语机器人"
+  language: "zh-CN"
+  cycle_pause_seconds: 2
+  max_error_pause_seconds: 5
+
+paths:
+  logs_dir: "logs"
+  audio_temp_dir: "recordings"
+  tts_output_dir: "recordings"
+
+privacy:
+  keep_recordings: false
+
+openai:
+  api_key_env: "OPENAI_API_KEY"
+  timeout_seconds: 30
+  max_retries: 2
+
+wakeword:
+  engine: "console"
+  wake_words:
+    - "小文小文"
+  prompt: "输入“小文小文”并回车来模拟唤醒。"
+
+recording:
+  engine: "sounddevice"
+  duration_seconds: 7
+  sample_rate: 16000
+  channels: 1
+  device: null
+
+speech_to_text:
+  provider: "openai"
+  model: "gpt-4o-mini-transcribe"
+  language: "zh"
+
+llm:
+  provider: "openai"
+  model: "gpt-4o-mini"
+  temperature: 0.2
+
+tts:
+  provider: "openai"
+  model: "gpt-4o-mini-tts"
+  voice: "alloy"
+  output_format: "wav"
+  enabled: true
+
+playback:
+  enabled: true
+  command: "auto"
+
+display:
+  engine: "console"
+  fullscreen: true
+  font_family: "Noto Sans CJK SC"
+  font_size: 36
+  result_hold_seconds: 8

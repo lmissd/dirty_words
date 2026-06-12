@@ -13,6 +13,7 @@ env/
 !.env.example
 LOCAL_CREDENTIALS.md
 *.private.md
+config/config.yaml
 
 # OS/editor files
 .DS_Store
@@ -21,8 +22,18 @@ Thumbs.db
 .idea/
 
 # Logs and generated media
+logs/*
+!logs/.gitkeep
+recordings/*
+!recordings/.gitkeep
+assets/generated/*
+!assets/generated/.gitkeep
 *.log
-recordings/
 *.wav
 *.mp3
 *.m4a
+
+# Test/cache output
+.pytest_cache/
+.coverage
+htmlcov/

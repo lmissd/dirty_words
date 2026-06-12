@@ -1,29 +1,98 @@
-# dirty_words
+# 文明用语机器人
 
-树莓派儿童文明用语提醒项目。
+Civil Language Robot 是一个基于 Raspberry Pi 4B 的桌面 AI 机器人项目。
 
-## 项目目标
+机器人通过语音与用户交互，识别用户表达的文明程度，并对不文明表达进行温和提醒和改写建议。项目采用云端大模型 API 方案，不在树莓派本地运行大模型。
 
-使用树莓派持续监听环境语音，在识别到小朋友说脏话或不文明用语时，及时进行温和提醒。
-
-## 初步功能设想
-
-1. 支持语音监听或语音唤醒。
-2. 通过语音转文字识别小朋友说的话。
-3. 调用大模型 API 或本地规则判断是否包含脏话。
-4. 如果检测到脏话，使用语音、蜂鸣器、灯光或屏幕进行提醒。
-
-## 推荐最小实现路径
+## 核心闭环
 
 ```text
-麦克风录音 -> 语音活动检测 -> 语音转文字 -> 脏话判断 -> 提醒反馈
+待机 -> 监听唤醒词 -> 录音 -> 语音转文字 -> 文明分析 -> 屏幕显示 -> 语音播报 -> 返回待机
 ```
 
-## 技术方向
+## 硬件环境
 
-- 主开发语言：Python
-- 运行设备：Raspberry Pi
-- 系统：Raspberry Pi OS
-- 版本控制：Git + GitHub
-- 后台运行：systemd 服务
+- 主控：Raspberry Pi 4B
+- 系统：Raspberry Pi OS 64-bit
+- 主机名：yuangungun
+- 用户：pi
+- 网络：WiFi
+- 远程访问：SSH
+- 输入：双麦克风阵列，USB 麦克风兼容方案
+- 输出：喇叭，功放模块
+- 显示：HDMI 显示屏
+- 存储：MicroSD 卡
 
+## 软件架构
+
+项目采用模块化设计，所有核心能力都通过接口解耦：
+
+```text
+main.py
+config/
+modules/
+  wakeword/
+  recorder/
+  speech_to_text/
+  llm/
+  tts/
+  display/
+  utils/
+assets/
+logs/
+tests/
+docs/
+```
+
+## 第一阶段目标
+
+第一阶段实现完整功能闭环：
+
+- 语音唤醒
+- 录音
+- 云端语音识别
+- GPT 文明用语分析
+- 屏幕显示结果
+- 语音播报提醒和改写建议
+
+## 配置与密钥
+
+真实配置文件使用：
+
+```text
+config/config.yaml
+```
+
+该文件已被 Git 忽略，不会提交到 GitHub。请从示例文件复制：
+
+```powershell
+Copy-Item config/config.example.yaml config/config.yaml
+Copy-Item .env.example .env
+```
+
+然后在 `.env` 或系统环境变量中设置：
+
+```text
+OPENAI_API_KEY=你的 OpenAI API Key
+```
+
+不要把真实 API Key、树莓派密码或其他凭据提交到仓库。
+
+## 本地开发
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python -m unittest discover -s tests
+python main.py --config config/config.yaml
+```
+
+Windows 本地开发默认使用控制台唤醒和控制台显示，方便先跑通逻辑。部署到树莓派后，可在配置中切换到真实麦克风录音、HDMI 全屏显示和音频播放。
+
+## 文档
+
+- [项目总规范](docs/PROJECT_SPEC.md)
+- [架构说明](docs/ARCHITECTURE.md)
+- [树莓派部署说明](docs/DEPLOYMENT_RASPBERRY_PI.md)
+- [安全说明](docs/SECURITY.md)
