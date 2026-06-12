@@ -8,6 +8,16 @@
 https://github.com/lmissd/dirty_words.git
 ```
 
+## 设备信息
+
+树莓派板子的主机名已经命名为：
+
+```text
+yuangungun
+```
+
+这个名字会用于后续 SSH 连接、局域网识别、部署脚本和 systemd 服务配置。
+
 ## 用户目标
 
 用户买了一块树莓派板子，想用来开发一个可以识别小朋友是否说脏话的设备。如果小朋友说了脏话，设备要及时提醒。
@@ -53,4 +63,3 @@ https://github.com/lmissd/dirty_words.git
 2. 搭建 Python 项目结构。
 3. 做第一个本地 Demo：读取一段录音或文字，判断是否包含脏话。
 4. 再接入麦克风录音和语音转文字。
-
