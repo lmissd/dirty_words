@@ -106,9 +106,25 @@ python main.py --config config/config.example.yaml --wakeword-only
 
 如果显示“唤醒成功”，说明项目的唤醒词流程已经打通。接下来再测试麦克风录音，并把唤醒词引擎替换为真实语音唤醒实现。
 
+树莓派上要测试真实语音唤醒时，使用：
+
+```bash
+cp config/raspberry-pi.example.yaml config/config.yaml
+cp .env.example .env
+python scripts/list_audio_devices.py
+python main.py --config config/config.yaml --wakeword-only
+```
+
+默认语音唤醒词是：
+
+```text
+范小团
+```
+
 ## 文档
 
 - [项目总规范](docs/PROJECT_SPEC.md)
 - [架构说明](docs/ARCHITECTURE.md)
+- [语音唤醒测试说明](docs/VOICE_WAKEWORD.md)
 - [树莓派部署说明](docs/DEPLOYMENT_RASPBERRY_PI.md)
 - [安全说明](docs/SECURITY.md)

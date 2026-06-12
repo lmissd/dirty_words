@@ -1,0 +1,101 @@
+# 语音唤醒测试说明
+
+## 当前方案
+
+第一阶段使用 STT 语音唤醒：
+
+```text
+短录音片段 -> 语音转文字 -> 检查是否包含唤醒词 -> 命中后进入主流程
+```
+
+默认唤醒词：
+
+```text
+范小团
+```
+
+这个方案适合快速验证完整闭环，但它会持续调用云端语音识别 API。后续长期待机版本建议替换为离线关键词唤醒。
+
+## 树莓派配置
+
+你当前的 USB 音响麦克风一体设备被 ALSA 识别为：
+
+```text
+card 3, device 0
+```
+
+树莓派配置示例文件：
+
+```text
+config/raspberry-pi.example.yaml
+```
+
+首次部署时复制：
+
+```bash
+cp config/raspberry-pi.example.yaml config/config.yaml
+cp .env.example .env
+```
+
+然后编辑 `.env`，填入：
+
+```text
+OPENAI_API_KEY=你的 OpenAI API Key
+```
+
+## 确认 Python 音频设备编号
+
+ALSA 的 `card 3` 不一定总是等于 Python `sounddevice` 的设备编号。建议执行：
+
+```bash
+python scripts/list_audio_devices.py
+```
+
+如果 USB 设备的 Python 编号不是 `3`，请修改：
+
+```yaml
+wakeword:
+  device: 真实的 Python 输入设备编号
+
+recording:
+  device: 真实的 Python 输入设备编号
+```
+
+播放设备仍然可以使用：
+
+```yaml
+playback:
+  alsa_device: "plughw:3,0"
+```
+
+## 只测试唤醒词
+
+```bash
+python main.py --config config/config.yaml --wakeword-only
+```
+
+运行后对着麦克风说：
+
+```text
+范小团
+```
+
+如果终端显示“唤醒成功”，说明语音唤醒链路已打通。
+
+## 测试完整闭环
+
+```bash
+python main.py --config config/config.yaml --once
+```
+
+流程：
+
+```text
+说“范小团”
+等待系统提示已唤醒
+继续说一句要分析的话
+系统转文字
+系统调用大模型判断文明程度
+系统显示结果
+系统语音播报建议
+```

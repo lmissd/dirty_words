@@ -54,7 +54,7 @@ SSH：开启
 
 ## 核心功能
 
-- 语音唤醒：默认唤醒词为“小文小文”，未来支持多个唤醒词。
+- 语音唤醒：当前用户希望默认唤醒词为“范小团”。第一阶段先使用 STT 语音唤醒方案，后续可替换为离线关键词唤醒。
 - 录音：唤醒成功后录制 5-10 秒临时音频。
 - 语音识别：调用云端 Speech-to-Text 服务，推荐 OpenAI Speech-to-Text。
 - 文明分析：调用 GPT 类大模型，返回 JSON，包括是否文明、评分、原因和建议。
@@ -129,4 +129,4 @@ API Key、树莓派密码和其他敏感信息不写入代码、不写入 README
 
 ## 当前下一步
 
-先完成模块化 Python 工程骨架、配置示例、日志系统、错误处理框架、基础测试和部署文档。随后逐步接入真实麦克风、唤醒词引擎、OpenAI 语音识别、GPT 文明分析和 TTS。
+当前 USB 音响麦克风一体设备在树莓派 ALSA 中识别为 `card 3, device 0`，录音和播放测试已经可以听到回放。下一步在树莓派上复制 `config/raspberry-pi.example.yaml` 为 `config/config.yaml`，配置 OpenAI API Key，测试 `python main.py --config config/config.yaml --wakeword-only`，说“范小团”触发语音唤醒。

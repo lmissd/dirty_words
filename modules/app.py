@@ -23,6 +23,7 @@ from modules.utils.errors import ConfigurationError, RobotError
 from modules.utils.logging_setup import setup_logging
 from modules.wakeword.base import WakeWordDetector
 from modules.wakeword.console_wakeword import ConsoleWakeWordDetector
+from modules.wakeword.stt_wakeword import SttWakeWordDetector
 
 LOGGER = logging.getLogger(__name__)
 
@@ -109,12 +110,13 @@ def build_app(config_path: Path) -> CivilLanguageRobotApp:
 
     display = _build_display(config)
     audio_player = AudioPlayer(config)
+    speech_to_text = _build_speech_to_text(config)
 
     return CivilLanguageRobotApp(
         config=config,
-        wakeword=_build_wakeword(config),
+        wakeword=_build_wakeword(config, speech_to_text),
         recorder=_build_recorder(config),
-        speech_to_text=_build_speech_to_text(config),
+        speech_to_text=speech_to_text,
         analyzer=_build_analyzer(config),
         display=display,
         tts=_build_tts(config, audio_player),
@@ -126,20 +128,29 @@ def run_wakeword_test(config_path: Path) -> None:
     config = load_config(config_path)
     setup_logging(config)
     display = _build_display(config)
-    wakeword = _build_wakeword(config)
+    wakeword_engine = str(config.get("wakeword.engine", "console")).lower()
+    speech_to_text = _build_speech_to_text(config) if wakeword_engine == "stt" else None
+    wakeword = _build_wakeword(config, speech_to_text)
 
     display.show_standby(list(config.get("wakeword.wake_words", [])))
     event = wakeword.wait_for_wake()
     display.show_status(f"唤醒成功：{event.wake_word}")
 
 
-def _build_wakeword(config: AppConfig) -> WakeWordDetector:
+def _build_wakeword(
+    config: AppConfig,
+    speech_to_text: SpeechToTextProvider | None = None,
+) -> WakeWordDetector:
     engine = str(config.get("wakeword.engine", "console")).lower()
     if engine == "console":
         return ConsoleWakeWordDetector(
             wake_words=list(config.get("wakeword.wake_words", ["小文小文"])),
             prompt=str(config.get("wakeword.prompt", "输入唤醒词并回车。")),
         )
+    if engine == "stt":
+        if speech_to_text is None:
+            raise ConfigurationError("STT 唤醒需要先配置语音识别模块。")
+        return SttWakeWordDetector(config, speech_to_text)
     raise ConfigurationError(f"暂不支持的唤醒词引擎：{engine}")
 
 

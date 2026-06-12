@@ -42,6 +42,9 @@ class AudioPlayer:
     def _auto_command(self, audio_path: Path) -> list[str] | None:
         suffix = audio_path.suffix.lower()
         if suffix == ".wav" and shutil.which("aplay"):
+            alsa_device = self.config.get("playback.alsa_device", None)
+            if alsa_device:
+                return ["aplay", "-D", str(alsa_device), str(audio_path)]
             return ["aplay", str(audio_path)]
         if shutil.which("mpg123"):
             return ["mpg123", "-q", str(audio_path)]

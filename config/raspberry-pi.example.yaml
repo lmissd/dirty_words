@@ -18,15 +18,14 @@ openai:
   max_retries: 2
 
 wakeword:
-  engine: "console"
+  engine: "stt"
   wake_words:
     - "范小团"
-  prompt: "输入“范小团”并回车来模拟唤醒。"
   listen_seconds: 2.5
   idle_pause_seconds: 0.2
   sample_rate: 16000
   channels: 1
-  device: null
+  device: 3
   delete_chunks: true
 
 recording:
@@ -34,7 +33,7 @@ recording:
   duration_seconds: 7
   sample_rate: 16000
   channels: 1
-  device: null
+  device: 3
 
 speech_to_text:
   provider: "openai"
@@ -56,7 +55,7 @@ tts:
 playback:
   enabled: true
   command: "auto"
-  alsa_device: null
+  alsa_device: "plughw:3,0"
 
 display:
   engine: "console"
