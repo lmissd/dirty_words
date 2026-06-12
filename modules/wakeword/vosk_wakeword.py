@@ -7,6 +7,7 @@ import logging
 import queue
 from pathlib import Path
 
+from modules.utils.audio_devices import resolve_input_device
 from modules.utils.config_loader import AppConfig
 from modules.utils.errors import AudioInputError, ConfigurationError
 from modules.wakeword.base import WakeEvent, WakeWordDetector
@@ -41,13 +42,20 @@ class VoskWakeWordDetector(WakeWordDetector):
             raise ConfigurationError("缺少 Vosk 依赖，请先执行 pip install -r requirements.txt") from exc
 
         recognizer = self._build_recognizer(KaldiRecognizer)
+        device = resolve_input_device(
+            self.config,
+            "wakeword.device",
+            fallback_key="recording.device",
+            channels=self.channels,
+            sd_module=sd,
+        )
         LOGGER.info("开始 Vosk 本地离线唤醒监听：%s", self.matcher_config.display_wake_word)
 
         try:
             with sd.RawInputStream(
                 samplerate=self.sample_rate,
                 blocksize=self.block_size,
-                device=self.device,
+                device=device,
                 dtype="int16",
                 channels=self.channels,
                 callback=self._audio_callback,

@@ -7,6 +7,7 @@ import queue
 import struct
 import time
 
+from modules.utils.audio_devices import resolve_input_device
 from modules.utils.config_loader import AppConfig
 from modules.utils.errors import AudioInputError
 
@@ -38,12 +39,19 @@ class SpeechActivityDetector:
         block_size = max(1, int(self.sample_rate * self.block_seconds))
         deadline = time.monotonic() + timeout_seconds
         speech_blocks = 0
+        device = resolve_input_device(
+            self.config,
+            "post_wake_speech.device",
+            fallback_key="recording.device",
+            channels=self.channels,
+            sd_module=sd,
+        )
 
         try:
             with sd.RawInputStream(
                 samplerate=self.sample_rate,
                 blocksize=block_size,
-                device=self.device,
+                device=device,
                 dtype="int16",
                 channels=self.channels,
                 callback=self._audio_callback,

@@ -112,7 +112,7 @@ python main.py --config config/config.example.yaml --wakeword-only
 ```bash
 cp config/raspberry-pi.example.yaml config/config.yaml
 cp .env.example .env
-python scripts/list_audio_devices.py
+python scripts/list_audio_devices.py --config config/config.yaml
 python main.py --config config/config.yaml --wakeword-only
 ```
 
@@ -128,6 +128,8 @@ python main.py --config config/config.yaml --wakeword-only
 python scripts/download_vosk_model.py
 python main.py --config config/config.yaml --wakeword-only
 ```
+
+树莓派配置默认使用 `device: "auto"` 自动选择 USB 麦克风，断电重启或重新插拔后通常不需要手动修改设备编号。
 
 如果只想测试“唤醒后问候”，不进入文明分析流程：
 

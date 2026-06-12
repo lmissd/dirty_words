@@ -8,6 +8,7 @@ from datetime import datetime
 from pathlib import Path
 
 from modules.speech_to_text.base import SpeechToTextProvider
+from modules.utils.audio_devices import resolve_input_device
 from modules.utils.config_loader import AppConfig
 from modules.utils.disk import ensure_free_space
 from modules.utils.errors import AudioInputError
@@ -59,18 +60,25 @@ class SttWakeWordDetector(WakeWordDetector):
             import sounddevice as sd
             import soundfile as sf
 
+            device = resolve_input_device(
+                self.config,
+                "wakeword.device",
+                fallback_key="recording.device",
+                channels=self.channels,
+                sd_module=sd,
+            )
             LOGGER.info(
                 "录制唤醒词片段：seconds=%s sample_rate=%s channels=%s device=%s",
                 self.listen_seconds,
                 self.sample_rate,
                 self.channels,
-                self.device,
+                device,
             )
             audio = sd.rec(
                 frames,
                 samplerate=self.sample_rate,
                 channels=self.channels,
-                device=self.device,
+                device=device,
             )
             sd.wait()
             sf.write(output_path, audio, self.sample_rate)

@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 from modules.recorder.base import AudioRecorder, RecordedAudio
+from modules.utils.audio_devices import resolve_input_device
 from modules.utils.config_loader import AppConfig
 from modules.utils.disk import ensure_free_space
 from modules.utils.errors import AudioInputError
@@ -25,7 +26,6 @@ class SoundDeviceRecorder(AudioRecorder):
         duration = float(self.config.get("recording.duration_seconds", 7))
         sample_rate = int(self.config.get("recording.sample_rate", 16000))
         channels = int(self.config.get("recording.channels", 1))
-        device = self.config.get("recording.device", None)
         output_dir = Path(str(self.config.get("paths.audio_temp_dir", "recordings")))
         ensure_free_space(output_dir)
 
@@ -37,6 +37,12 @@ class SoundDeviceRecorder(AudioRecorder):
             import sounddevice as sd
             import soundfile as sf
 
+            device = resolve_input_device(
+                self.config,
+                "recording.device",
+                channels=channels,
+                sd_module=sd,
+            )
             LOGGER.info(
                 "开始录音：duration=%s sample_rate=%s channels=%s device=%s",
                 duration,

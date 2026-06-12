@@ -72,12 +72,18 @@ wakeword:
   model_path: "models/vosk-model-small-cn-0.22"
   sample_rate: 48000
   channels: 1
-  device: 1
+  device: "auto"
   block_size: 8000
   grammar_enabled: false
 ```
 
-如果 `python scripts/list_audio_devices.py` 显示 USB 麦克风不是设备 `1`，请同步修改：
+默认 `device: "auto"` 会自动选择带输入通道的 USB 麦克风设备，断电重启或重新插拔后不需要手动记住 Python 设备编号。可执行下面命令查看当前设备列表和程序自动选择结果：
+
+```bash
+python scripts/list_audio_devices.py --config config/config.yaml
+```
+
+如果自动选择不符合预期，再临时手动指定：
 
 ```yaml
 wakeword:

@@ -134,7 +134,7 @@ API Key、树莓派密码和其他敏感信息不写入代码、不写入 README
 
 ## 当前下一步
 
-当前 USB 音响麦克风一体设备在树莓派 ALSA 中识别为 `card 3, device 0`，Python sounddevice 中识别为设备 `1`，采样率使用 `48000`，录音和播放测试已经可以听到回放。测试离线唤醒时运行 `python main.py --config config/config.yaml --wakeword-only`，说“范小团你好”触发。
+当前 USB 音响麦克风一体设备在树莓派 ALSA 中识别为 `card 3, device 0`，采样率使用 `48000`，录音和播放测试已经可以听到回放。为避免断电重启或重新插拔后 Python `sounddevice` 设备编号变化，树莓派配置默认使用 `device: "auto"` 自动查找有输入通道的 USB 麦克风。测试离线唤醒时运行 `python main.py --config config/config.yaml --wakeword-only`，说“范小团你好”触发。
 
 用户希望先实现第一步唤醒反馈：识别到“范小团你好”后暂时不进入脏话检测流程，只显示唤醒成功并播放“小朋友你好”。对应运行命令为 `python main.py --config config/config.yaml --wake-greeting --once`。
 
@@ -163,7 +163,11 @@ python main.py --config config/config.yaml --wake-greeting
 ```bash
 pkill -9 -f "main.py --config config/config.yaml --wake-greeting"
 fuser -v /dev/snd/* 2>&1 || true
-python scripts/list_audio_devices.py
+python scripts/list_audio_devices.py --config config/config.yaml
 ```
 
-期望 `python scripts/list_audio_devices.py` 能看到 USB 设备为 `1 in, 2 out`。如果显示 `0 in, 2 out`，通常说明麦克风被旧进程占用或 USB 音频设备需要重新插拔。
+期望 `python scripts/list_audio_devices.py --config config/config.yaml` 能看到 USB 设备为 `1 in, 2 out`，并显示自动选择的麦克风 `device`。如果显示 `0 in, 2 out`，通常说明麦克风被旧进程占用或 USB 音频设备需要重新插拔。
+
+## 临时文件清理规则
+
+测试过程中生成的临时录音、唤醒片段、TTS 音频缓存和模型压缩包不要长期堆在项目目录里。默认应保持 `privacy.keep_recordings: false`，让正式流程处理完录音后自动删除；STT 唤醒片段保持 `wakeword.delete_chunks: true`。手动测试后如产生 `recordings/*.wav`、`assets/audio/*.wav`、`assets/audio/*.mp3`、日志文件或临时下载文件，应确认不再需要后及时删除，避免测试文件越来越多导致目录混乱。仓库中只保留 `.gitkeep`、代码、配置示例、文档和必要测试，不提交临时音频或真实凭据。

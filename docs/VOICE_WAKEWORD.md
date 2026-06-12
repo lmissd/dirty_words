@@ -52,15 +52,25 @@ DEEPSEEK_API_KEY=你的 DeepSeek API Key
 
 当前树莓派示例配置中，语音识别和 TTS 仍使用 OpenAI，文明用语分析使用 DeepSeek。
 
-## 确认 Python 音频设备编号
+## 确认 Python 音频设备
 
-ALSA 的 `card 3` 不一定总是等于 Python `sounddevice` 的设备编号。建议执行：
+ALSA 的 `card 3` 不一定总是等于 Python `sounddevice` 的设备编号，而且断电重启或重新插拔 USB 设备后编号也可能变化。当前树莓派配置默认使用：
 
-```bash
-python scripts/list_audio_devices.py
+```yaml
+wakeword:
+  device: "auto"
+
+recording:
+  device: "auto"
 ```
 
-如果 USB 设备的 Python 编号不是 `3`，请修改：
+程序会优先自动选择带输入通道的 USB 麦克风。建议执行下面命令查看当前设备列表和自动选择结果：
+
+```bash
+python scripts/list_audio_devices.py --config config/config.yaml
+```
+
+如果自动选择不符合预期，再临时手动指定：
 
 ```yaml
 wakeword:
