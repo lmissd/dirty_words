@@ -90,6 +90,22 @@ python main.py --config config/config.yaml
 
 Windows 本地开发默认使用控制台唤醒和控制台显示，方便先跑通逻辑。部署到树莓派后，可在配置中切换到真实麦克风录音、HDMI 全屏显示和音频播放。
 
+## 第一阶段：唤醒词验证
+
+在还没有配置 OpenAI API Key 前，可以只测试唤醒词模块：
+
+```bash
+python main.py --config config/config.example.yaml --wakeword-only
+```
+
+当前默认是控制台模拟唤醒。看到提示后输入：
+
+```text
+小文小文
+```
+
+如果显示“唤醒成功”，说明项目的唤醒词流程已经打通。接下来再测试麦克风录音，并把唤醒词引擎替换为真实语音唤醒实现。
+
 ## 文档
 
 - [项目总规范](docs/PROJECT_SPEC.md)

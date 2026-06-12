@@ -121,6 +121,18 @@ def build_app(config_path: Path) -> CivilLanguageRobotApp:
     )
 
 
+def run_wakeword_test(config_path: Path) -> None:
+    """Run wake word detection without building API-backed modules."""
+    config = load_config(config_path)
+    setup_logging(config)
+    display = _build_display(config)
+    wakeword = _build_wakeword(config)
+
+    display.show_standby(list(config.get("wakeword.wake_words", [])))
+    event = wakeword.wait_for_wake()
+    display.show_status(f"唤醒成功：{event.wake_word}")
+
+
 def _build_wakeword(config: AppConfig) -> WakeWordDetector:
     engine = str(config.get("wakeword.engine", "console")).lower()
     if engine == "console":
