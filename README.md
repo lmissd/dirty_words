@@ -134,7 +134,7 @@ python main.py --config config/config.yaml --wakeword-only
 如果只想测试“唤醒后问候”，不进入文明分析流程：
 
 ```bash
-python scripts/generate_greeting_audio.py
+python scripts/record_greeting_audio.py --config config/config.yaml --duration 3 --playback
 python main.py --config config/config.yaml --wake-greeting --once
 ```
 
@@ -144,12 +144,9 @@ python main.py --config config/config.yaml --wake-greeting --once
 小朋友你好
 ```
 
-当前树莓派配置默认使用本地音频 `assets/audio/greeting.wav` 做问候播放，不需要 OpenAI Key。
-如果要让它真正说出“小朋友你好”，请在树莓派安装本地 TTS：
+当前树莓派配置默认优先播放你录制的本地音频 `assets/audio/greeting.wav`，不需要 OpenAI Key，也不需要本地 TTS。录制文件已被 Git 忽略，不会提交到 GitHub。
 
-```bash
-sudo apt install -y espeak-ng
-```
+树莓派显示配置可使用 `display.engine: "robot_animation"`。唤醒成功后会播放 `assets/robot/fantuan_jump` 中的小机器人跳跃透明帧约 10 秒，并停留在微笑帧。
 
 完整分析流程默认是持续待机、重复触发。被“范小团你好”唤醒后，如果 30 秒内没有检测到新的语音活动，会自动返回待机，不进入语音识别和大模型分析。
 

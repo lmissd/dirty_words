@@ -19,10 +19,13 @@
 - `LOCAL_CREDENTIALS.md`
 - `*.private.md`
 - `recordings/*`
+- `assets/audio/*`
 - `logs/*`
 
 ## 儿童语音数据
 
 项目默认建议不长期保存录音。配置项 `privacy.keep_recordings` 默认为 `false`，处理完成后应删除临时音频。
+
+唤醒问候使用的个人预设录音默认保存为 `assets/audio/greeting.wav`。这个文件只保存在本地或树莓派，不提交到 GitHub。
 
 如果未来需要保存音频用于调试，建议只在本地短期保存，并在提交前确认没有被 Git 跟踪。

@@ -106,24 +106,55 @@ python main.py --config config/config.yaml --wakeword-only
 
 ## 测试唤醒后问候
 
+先录制你自己的固定问候语音：
+
 ```bash
-python scripts/generate_greeting_audio.py
-python main.py --config config/config.yaml --wake-greeting --once
+python scripts/record_greeting_audio.py --config config/config.yaml --duration 3 --playback
 ```
 
-这个模式的唤醒和问候播放都可以离线完成，不需要 OpenAI Key。默认播放：
+录音会保存到：
 
 ```text
 assets/audio/greeting.wav
 ```
 
-当前树莓派配置使用 `espeak-ng` 本地中文 TTS 生成这个 wav。首次使用前安装：
+然后测试唤醒后问候：
 
 ```bash
-sudo apt install -y espeak-ng
+python main.py --config config/config.yaml --wake-greeting --once
 ```
 
-然后运行唤醒问候命令时，程序会自动生成并播放“小朋友你好”。如果你想换成更自然的声音，也可以把自己录制或其他本地 TTS 生成的 wav 替换为这个文件。
+这个模式的唤醒和问候播放都可以离线完成，不需要 OpenAI Key。树莓派配置默认播放你的预设录音：
+
+```text
+assets/audio/greeting.wav
+```
+
+这个录音文件属于个人/测试音频，已被 `.gitignore` 忽略，不要提交到 GitHub。如果想重新录制，重新运行 `scripts/record_greeting_audio.py` 覆盖即可。
+
+树莓派显示可启用小机器人动画：
+
+```yaml
+display:
+  engine: "robot_animation"
+
+robot_animation:
+  frame_dir: "assets/robot/fantuan_jump"
+  duration_seconds: 10
+  final_frame: 7
+```
+
+唤醒成功后，屏幕会播放约 10 秒跳跃动画，然后停留在微笑帧。动画帧来自 `pics/fantuan_robot.png`，已处理为透明背景并拆分到 `assets/robot/fantuan_jump`。
+
+如果录音成功但试听播放失败，优先检查播放设备。树莓派配置默认使用：
+
+```yaml
+playback:
+  prefer_pipewire: true
+  alsa_device: "auto"
+```
+
+程序会优先使用 PipeWire 的默认输出，例如已连接的蓝牙音箱；如果 PipeWire 不可用，再自动选择有输出通道的 ALSA 设备，例如 USB 音箱、3.5mm 耳机口或 HDMI 音频。
 
 ## 唤醒后等待说话
 

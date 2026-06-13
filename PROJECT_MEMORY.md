@@ -144,19 +144,33 @@ API Key、树莓派密码和其他敏感信息不写入代码、不写入 README
 
 用户进一步要求问候要真正说出“小朋友你好”，而不是提示音。当前方向是新增 `tts.provider: "local_command"`，通过树莓派本地 `espeak-ng` 生成 `assets/audio/greeting.wav` 并播放。该方案完全离线，但音色会偏机器人感。
 
+当前新升级方向是唤醒问候优先使用用户自己的预设录音。树莓派配置使用 `greeting.use_prerecorded_audio: true`，问候模式会直接播放 `greeting.audio_path`，默认路径为 `assets/audio/greeting.wav`。用户可在树莓派运行 `python scripts/record_greeting_audio.py --config config/config.yaml --duration 3 --playback` 录制自己的“小朋友你好”。该音频属于个人/测试文件，不提交 GitHub。
+
+录制预设问候时，如果出现 `aplay ... plughw:3,0 ... No such file or directory`，说明录音已保存但试听播放设备配置不稳定。播放端也应使用自动选择：`playback.alsa_device: "auto"`。程序会自动选择有输出通道的设备，避免 USB 设备当前只有输入通道时仍固定使用 `plughw:3,0`。
+
+树莓派连接蓝牙音箱后，`wpctl status` 中可见蓝牙输出 `F7`，并且它是默认 sink。播放预设问候音频时应优先使用 PipeWire 的 `pw-play`，这样声音会进入当前默认蓝牙音箱；不要优先走 `aplay`，否则可能被自动选到 3.5mm `Headphones` 而听不到蓝牙音箱声音。
+
+用户新增一张小机器人连续动作图：`pics/fantuan_robot.png`。当前已将其作为 `2 行 x 4 列` 精灵图处理，生成透明背景整图 `assets/robot/fantuan_robot_transparent.png`，并拆分出 `assets/robot/fantuan_jump/frame_00.png` 到 `frame_07.png`。最小可运行版本使用 `display.engine: "robot_animation"`，唤醒成功后播放约 10 秒跳跃动画，然后停留在 `final_frame: 7` 的微笑站立帧。
+
+唤醒问候流程中，动画和预设语音应同时开始：检测到“范小团你好”后，后台线程播放 `assets/audio/greeting.wav`，主线程同时播放机器人跳跃动画。动画结束后保持微笑帧，再回到待机循环。
+
 用户要求运行逻辑为持续待机、可重复触发。被“范小团你好”唤醒后，如果 30 秒内没有检测到新的语音活动，系统自动恢复待机，不进入后续录音、语音识别或大模型分析。该逻辑通过 `post_wake_speech.timeout_seconds: 30` 配置。
 
 ## 当前已验证状态
 
-截至 2026-06-13，树莓派 `yuangungun` 上的当前阶段目标是测试离线唤醒问候闭环：持续待机，用户说“范小团你好”，本地 Vosk 离线识别唤醒，树莓派通过本地 `espeak-ng` TTS 播放“小朋友你好”，随后回到待机继续监听。这个阶段暂时不需要 OpenAI API Key，也暂时不进入文明分析流程。
+截至 2026-06-13，树莓派 `yuangungun` 上的当前阶段目标是测试离线唤醒问候闭环：持续待机，用户说“范小团你好”，本地 Vosk 离线识别唤醒，树莓派使用用户自己录制的 `assets/audio/greeting.wav` 播放“小朋友你好”，同时在 HDMI 屏幕播放约 10 秒小机器人跳跃动画，随后停留在微笑帧并返回待机继续监听。这个阶段暂时不需要 OpenAI API Key，也暂时不进入文明分析流程。
 
 树莓派项目目录为 `/home/pi/dirty_words`，虚拟环境为 `/home/pi/.venv`。当前测试命令：
 
 ```bash
 cd ~/dirty_words
 source ~/.venv/bin/activate
-python main.py --config config/config.yaml --wake-greeting
+DISPLAY=:0 XDG_RUNTIME_DIR=/run/user/1000 python main.py --config config/config.yaml --wake-greeting
 ```
+
+如果直接在树莓派桌面终端中运行，可省略 `DISPLAY` 和 `XDG_RUNTIME_DIR`。如果通过 SSH 启动机器人动画显示，必须带上这两个环境变量，否则会报“无法打开机器人动画窗口”。
+
+当前播放链路优先使用 PipeWire 的 `pw-play`，让语音进入默认蓝牙音箱 `F7`；麦克风仍由自动选择的 USB 输入设备负责。
 
 如果再次出现 `Invalid number of channels [PaErrorCode -9998]`，优先检查是否有旧的唤醒测试进程占用麦克风。可用下面命令清理后重试：
 

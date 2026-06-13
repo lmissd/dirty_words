@@ -37,9 +37,7 @@ def resolve_input_device(
     devices = list(sd.query_devices())
     candidates = _input_candidates(devices, channels)
     if not candidates:
-        raise AudioInputError(
-            f"没有找到支持 {channels} 个输入通道的麦克风设备。当前设备：{_format_input_devices(devices)}"
-        )
+        raise AudioInputError(_build_no_input_device_message(devices, channels))
 
     keywords = _input_keywords(config)
     for keyword in keywords:
@@ -126,6 +124,19 @@ def _input_candidates(devices: list[dict[str, Any]], channels: int) -> list[tupl
         for index, info in enumerate(devices)
         if int(info.get("max_input_channels", 0)) >= channels
     ]
+
+
+def _build_no_input_device_message(devices: list[dict[str, Any]], channels: int) -> str:
+    formatted_devices = _format_input_devices(devices)
+    if devices and all(int(info.get("max_input_channels", 0)) <= 0 for info in devices):
+        return (
+            f"没有找到支持 {channels} 个输入通道的麦克风设备。"
+            f"当前只识别到输出设备：{formatted_devices}。"
+            "这通常不是录音脚本本身的问题，而是树莓派当前没有识别到 USB 麦克风输入。"
+            "请先执行 `fuser -v /dev/snd/*`、`arecord -l`，"
+            "如果仍然没有 USB 录音设备，再重新插拔麦克风或重启后重试。"
+        )
+    return f"没有找到支持 {channels} 个输入通道的麦克风设备。当前设备：{formatted_devices}"
 
 
 def _default_input_index(sd: Any) -> int | None:

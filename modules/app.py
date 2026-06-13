@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from pathlib import Path
 
 from modules.display.base import Display
 from modules.display.console_display import ConsoleDisplay
+from modules.display.robot_animation_display import RobotAnimationDisplay
 from modules.display.tkinter_display import TkinterDisplay
 from modules.llm.base import CivilLanguageAnalyzer
 from modules.llm.deepseek_civil_analyzer import DeepSeekCivilLanguageAnalyzer
@@ -161,11 +163,8 @@ class WakeGreetingApp:
 
             self.display.show_standby(wake_words)
             event = self.wakeword.wait_for_wake()
-            self.display.show_status(f"唤醒成功：{event.wake_word}")
-
-            self._logger.info("播放问候语：%s", greeting_text)
-            self.tts.speak(greeting_text)
-            self.display.show_status("问候完成，返回待机。")
+            self._speak_during_wake_animation(event.wake_word, greeting_text)
+            self.display.show_greeting_complete()
         except RobotError as exc:
             self._logger.warning("唤醒问候流程发生可恢复错误：%s", exc)
             self.display.show_error(str(exc))
@@ -174,6 +173,26 @@ class WakeGreetingApp:
             self._logger.exception("唤醒问候流程发生未知错误。")
             self.display.show_error("问候流程遇到未知错误，正在返回待机。")
             time.sleep(float(self.config.get("app.max_error_pause_seconds", 5)))
+
+    def _speak_during_wake_animation(self, wake_word: str, greeting_text: str) -> None:
+        errors: list[Exception] = []
+
+        def speak_greeting() -> None:
+            try:
+                self._logger.info("播放问候语：%s", greeting_text)
+                self.tts.speak(greeting_text)
+            except Exception as exc:
+                errors.append(exc)
+
+        thread = threading.Thread(target=speak_greeting, name="wake-greeting-tts", daemon=True)
+        thread.start()
+        try:
+            self.display.show_wake_success(wake_word)
+        finally:
+            thread.join()
+
+        if errors:
+            raise errors[0]
 
 
 def build_app(config_path: Path) -> CivilLanguageRobotApp:
@@ -212,7 +231,7 @@ def build_wake_greeting_app(config_path: Path) -> WakeGreetingApp:
         config=config,
         wakeword=_build_wakeword(config, speech_to_text),
         display=_build_display(config),
-        tts=_build_tts(config, audio_player),
+        tts=_build_greeting_tts(config, audio_player),
     )
 
 
@@ -291,12 +310,20 @@ def _build_tts(config: AppConfig, audio_player: AudioPlayer) -> TextToSpeechProv
     raise ConfigurationError(f"暂不支持的 TTS 供应商：{provider}")
 
 
+def _build_greeting_tts(config: AppConfig, audio_player: AudioPlayer) -> TextToSpeechProvider:
+    if bool(config.get("greeting.use_prerecorded_audio", False)):
+        return LocalAudioTextToSpeech(config, audio_player)
+    return _build_tts(config, audio_player)
+
+
 def _build_display(config: AppConfig) -> Display:
     engine = str(config.get("display.engine", "console")).lower()
     if engine == "console":
         return ConsoleDisplay(config)
     if engine == "tkinter":
         return TkinterDisplay(config)
+    if engine in {"robot_animation", "robot"}:
+        return RobotAnimationDisplay(config)
     raise ConfigurationError(f"暂不支持的显示引擎：{engine}")
 
 

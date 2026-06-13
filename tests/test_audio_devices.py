@@ -88,6 +88,19 @@ class AudioDeviceSelectionTests(unittest.TestCase):
 
         self.assertEqual(device, 0)
 
+    def test_auto_error_explains_output_only_device_list(self) -> None:
+        config = AppConfig(data={"recording": {"device": "auto"}}, path=Path("config/config.example.yaml"))
+        sd = FakeSoundDevice(
+            [{"name": "bcm2835 Headphones", "max_input_channels": 0, "max_output_channels": 8}],
+        )
+
+        with self.assertRaises(AudioInputError) as context:
+            resolve_input_device(config, "recording.device", channels=1, sd_module=sd)
+
+        message = str(context.exception)
+        self.assertIn("当前只识别到输出设备", message)
+        self.assertIn("arecord -l", message)
+
 
 if __name__ == "__main__":
     unittest.main()

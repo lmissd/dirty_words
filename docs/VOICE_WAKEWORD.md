@@ -80,11 +80,11 @@ recording:
   device: 真实的 Python 输入设备编号
 ```
 
-播放设备仍然可以使用：
+播放设备也建议自动选择：
 
 ```yaml
 playback:
-  alsa_device: "plughw:3,0"
+  alsa_device: "auto"
 ```
 
 ## 只测试唤醒词

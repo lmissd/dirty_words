@@ -21,6 +21,12 @@ audio:
     - "Microphone"
     - "Mic"
     - "Audio"
+  output_device_keywords:
+    - "USB"
+    - "Speaker"
+    - "Headphone"
+    - "HDMI"
+    - "Audio"
 
 openai:
   api_key_env: "OPENAI_API_KEY"
@@ -70,6 +76,7 @@ wakeword:
 
 greeting:
   text: "小朋友你好"
+  use_prerecorded_audio: false
   audio_path: "assets/audio/greeting.wav"
 
 post_wake_speech:
@@ -123,7 +130,8 @@ tts:
 playback:
   enabled: true
   command: "auto"
-  alsa_device: null
+  prefer_pipewire: true
+  alsa_device: "auto"
 
 display:
   engine: "console"
@@ -131,3 +139,11 @@ display:
   font_family: "Noto Sans CJK SC"
   font_size: 36
   result_hold_seconds: 8
+
+robot_animation:
+  frame_dir: "assets/robot/fantuan_jump"
+  duration_seconds: 10
+  final_frame: 7
+  background_color: "#f7f3e8"
+  text_color: "#1d2b2a"
+  font_size: 36
