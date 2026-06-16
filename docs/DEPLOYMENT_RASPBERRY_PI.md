@@ -38,6 +38,21 @@ sudo apt install -y python3-venv python3-pip portaudio19-dev libsndfile1 alsa-ut
 sudo apt install -y mpg123 ffmpeg
 ```
 
+如需使用 Piper 中文神经 TTS，也建议安装：
+
+```bash
+sudo apt install -y piper
+```
+
+如果你的系统源里没有 `piper`，也可以用官方发布包：
+
+```bash
+cd ~
+wget https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_linux_aarch64.tar.gz
+tar -xzf piper_linux_aarch64.tar.gz
+sudo install -m 755 piper/piper /usr/local/bin/piper
+```
+
 ## 4. 克隆项目
 
 ```bash
@@ -76,16 +91,58 @@ DEEPSEEK_API_KEY=你的 DeepSeek API Key
 
 编辑 `config/config.yaml`，根据麦克风、屏幕和喇叭情况调整参数。
 
-## 7. 运行
+如果你要用 Piper 中文神经 TTS：
+
+1. 准备 Piper 中文模型，例如 `zh_CN-huayan-medium.onnx` 和对应的 `zh_CN-huayan-medium.onnx.json`
+2. 放到项目目录：
+
+```text
+models/piper/
+```
+
+3. 确认配置：
+
+```yaml
+greeting:
+  use_prerecorded_audio: false
+
+tts:
+  provider: "piper"
+  binary: "piper"
+  model_path: "models/piper/zh_CN-huayan-medium.onnx"
+  model_config_path: "models/piper/zh_CN-huayan-medium.onnx.json"
+```
+
+4. 下载中文模型：
+
+```bash
+mkdir -p models/piper
+cd models/piper
+wget https://huggingface.co/rhasspy/piper-voices/resolve/main/zh/zh_CN/huayan/medium/zh_CN-huayan-medium.onnx
+wget https://huggingface.co/rhasspy/piper-voices/resolve/main/zh/zh_CN/huayan/medium/zh_CN-huayan-medium.onnx.json
+```
+
+## 7. 预览唤醒动画
+
+接好 HDMI 屏幕后，可以先单独播放一次小机器人唤醒动画：
+
+```bash
+source .venv/bin/activate
+python scripts/play_wake_animation.py --config config/config.yaml --duration 3
+```
+
+这个预览不依赖麦克风、唤醒模型或音频播放。如果只想在桌面窗口里测试，可以加上 `--windowed`。
+
+## 8. 运行
 
 ```bash
 source .venv/bin/activate
 python main.py --config config/config.yaml
 ```
 
-第一版默认使用控制台唤醒和控制台显示，方便验证流程。接入真实硬件后，将 `display.engine` 改为 `tkinter`，并根据需要调整录音设备。
+第一版默认使用控制台唤醒和控制台显示，方便验证流程。接入真实硬件后，将 `display.engine` 改为 `robot_animation`，并根据需要调整录音设备。
 
-## 8. 开机自启动预留
+## 9. 开机自启动预留
 
 后续可以新增 systemd 服务文件，例如：
 

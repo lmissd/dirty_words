@@ -20,7 +20,7 @@ standby -> wakeword -> recording -> speech_to_text -> analysis -> display -> tts
 - `modules/recorder`：录音。当前提供基于 `sounddevice` 的 WAV 录音实现。
 - `modules/speech_to_text`：语音转文字。当前提供 OpenAI Speech-to-Text 适配器。
 - `modules/llm`：文明用语分析。当前提供 OpenAI GPT 和 DeepSeek JSON 分析适配器。
-- `modules/tts`：文字转语音。当前提供 OpenAI TTS 适配器。
+- `modules/tts`：文字转语音。当前提供 OpenAI、本地音频、本地命令和 Piper 神经 TTS 适配器。
 - `modules/display`：结果显示。当前提供控制台显示和 Tkinter 全屏显示。
 - `modules/utils`：配置加载、日志、错误类型、音频播放和磁盘检查。
 

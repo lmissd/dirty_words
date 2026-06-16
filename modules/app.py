@@ -24,6 +24,7 @@ from modules.tts.base import TextToSpeechProvider
 from modules.tts.local_command_tts import LocalCommandTextToSpeech
 from modules.tts.local_audio_tts import LocalAudioTextToSpeech
 from modules.tts.openai_tts import OpenAITextToSpeech
+from modules.tts.piper_tts import PiperTextToSpeech
 from modules.utils.audio_player import AudioPlayer
 from modules.utils.config_loader import AppConfig, load_config
 from modules.utils.errors import ConfigurationError, RobotError
@@ -265,6 +266,10 @@ def _build_wakeword(
         return SttWakeWordDetector(config, speech_to_text)
     if engine in {"vosk", "local"}:
         return VoskWakeWordDetector(config)
+    if engine in {"openwakeword", "oww"}:
+        from modules.wakeword.openwakeword_wakeword import OpenWakeWordDetector
+
+        return OpenWakeWordDetector(config)
     raise ConfigurationError(f"暂不支持的唤醒词引擎：{engine}")
 
 
@@ -303,6 +308,8 @@ def _build_tts(config: AppConfig, audio_player: AudioPlayer) -> TextToSpeechProv
     provider = str(config.get("tts.provider", "openai")).lower()
     if provider == "openai":
         return OpenAITextToSpeech(config, audio_player)
+    if provider == "piper":
+        return PiperTextToSpeech(config, audio_player)
     if provider == "local_command":
         return LocalCommandTextToSpeech(config, audio_player)
     if provider == "local_audio":

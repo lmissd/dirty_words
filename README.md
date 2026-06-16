@@ -116,29 +116,82 @@ python scripts/list_audio_devices.py --config config/config.yaml
 python main.py --config config/config.yaml --wakeword-only
 ```
 
-默认语音唤醒词是：
+当前目标语音唤醒词是：
 
 ```text
-范小团你好
+饭团饭团
 ```
 
-当前树莓派配置默认使用 Vosk 本地离线唤醒。首次使用前需要下载中文模型：
+当前树莓派示例配置默认使用 openWakeWord 专用本地唤醒链路：48kHz 单声道采集、软件重采样到 16kHz、80ms 音频帧、VAD 过滤背景声。openWakeWord 需要针对“饭团饭团”训练好的自定义模型：
+
+```text
+models/openwakeword/fantuan_fantuan.onnx
+```
+
+如果暂时还没有该模型，可以把 `wakeword.engine` 临时改回 `vosk`，并下载中文回退模型：
 
 ```bash
 python scripts/download_vosk_model.py
 python main.py --config config/config.yaml --wakeword-only
 ```
 
+采集“饭团饭团”训练样本时，使用：
+
+```bash
+cd ~/dirty_words
+source ~/.venv312/bin/activate
+python scripts/collect_wakeword_samples.py --config config/config.yaml --count 30 --duration 2
+```
+
+脚本会每条录音前提示一次，录完后询问保留、重录或删除跳过。训练素材默认保存到 `training_data/wakeword/fantuan_fantuan`，不会提交到 GitHub。
+
+如果正样本里混入了噪音或空白，可以逐条复听并把坏样本转到负样本目录：
+
+```bash
+cd ~/dirty_words
+source ~/.venv312/bin/activate
+python scripts/review_positive_samples.py --config config/config.yaml
+```
+
+为了减少误触发，还可以继续采集负样本：
+
+```bash
+cd ~/dirty_words
+source ~/.venv312/bin/activate
+python scripts/collect_negative_samples.py --config config/config.yaml --count 30 --duration 2 --playback
+```
+
+脚本会轮流提示相似误触发词、普通说话和环境声，默认保存到 `training_data/wakeword/negative`。
+
+当正负样本都采集完成后，可以先导出一个训练包，便于复制到电脑或 Colab 做 openWakeWord 自定义模型训练：
+
+```bash
+cd ~/dirty_words
+source ~/.venv312/bin/activate
+python scripts/export_wakeword_training_bundle.py --config config/config.yaml
+```
+
+默认会生成：
+
+```text
+exports/fantuan_fantuan_training_bundle.zip
+```
+
+压缩包内包含正样本、负样本、对应的 `metadata.csv` 快照和 `manifest.json`，这些素材不提交到 GitHub。
+
 树莓派配置默认使用 `device: "auto"` 自动选择 USB 麦克风，断电重启或重新插拔后通常不需要手动修改设备编号。
 
 如果只想测试“唤醒后问候”，不进入文明分析流程：
 
 ```bash
+python scripts/play_wake_animation.py --config config/config.yaml --duration 3
 python scripts/record_greeting_audio.py --config config/config.yaml --duration 3 --playback
 python main.py --config config/config.yaml --wake-greeting --once
 ```
 
-听到或识别到“范小团你好”后，系统会显示唤醒成功，并播报：
+第一条命令会直接在 HDMI 屏幕上播放一次小机器人唤醒动画，不依赖麦克风、唤醒模型或问候音频，适合先单独确认屏幕和动画帧正常。
+
+听到或识别到“饭团饭团”后，系统会显示唤醒成功，并播报：
 
 ```text
 小朋友你好
@@ -146,9 +199,11 @@ python main.py --config config/config.yaml --wake-greeting --once
 
 当前树莓派配置默认优先播放你录制的本地音频 `assets/audio/greeting.wav`，不需要 OpenAI Key，也不需要本地 TTS。录制文件已被 Git 忽略，不会提交到 GitHub。
 
+如果你想改成现成的中文神经语音包，项目现在也支持 Piper。把 `tts.provider` 改为 `piper`，并在 `tts.model_path` / `tts.model_config_path` 指向本地中文模型文件即可。这样打招呼和文明提醒都可以用同一个中文 TTS，不需要 OpenAI Key。
+
 树莓派显示配置可使用 `display.engine: "robot_animation"`。唤醒成功后会播放 `assets/robot/fantuan_jump` 中的小机器人跳跃透明帧约 10 秒，并停留在微笑帧。
 
-完整分析流程默认是持续待机、重复触发。被“范小团你好”唤醒后，如果 30 秒内没有检测到新的语音活动，会自动返回待机，不进入语音识别和大模型分析。
+完整分析流程默认是持续待机、重复触发。被“饭团饭团”唤醒后，如果 30 秒内没有检测到新的语音活动，会自动返回待机，不进入语音识别和大模型分析。
 
 ## 文档
 

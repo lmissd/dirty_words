@@ -40,42 +40,51 @@ deepseek:
   max_retries: 2
 
 wakeword:
-  engine: "vosk"
-  display_wake_word: "范小团你好"
+  engine: "openwakeword"
+  display_wake_word: "饭团饭团"
   wake_words:
-    - "范小团你好"
+    - "饭团饭团"
   wake_aliases:
-    - "饭小团你好"
-    - "办小团你好"
-    - "但小团你好"
-    - "分小团你好"
-    - "小团你好"
-    - "饭小团你号"
-    - "办小团你号"
-    - "但小团你号"
-    - "分小团你号"
-    - "小团你号"
+    - "饭团"
+    - "饭团你好"
   fuzzy_enabled: true
   fuzzy_threshold: 0.62
-  require_greeting: true
+  require_greeting: false
   greeting_words:
     - "你好"
     - "你号"
   subject_keywords:
-    - "小团"
+    - "饭团"
   listen_seconds: 2.5
   idle_pause_seconds: 0.2
+  input_sample_rate: 48000
+  model_sample_rate: 16000
+  frame_ms: 80
   sample_rate: 48000
   channels: 1
   device: "auto"
   delete_chunks: true
   model_path: "models/vosk-model-small-cn-0.22"
+  model_paths:
+    - "models/openwakeword/fantuan_fantuan.onnx"
+  target_labels:
+    - "fantuan_fantuan"
+  threshold: 0.5
+  patience_frames: 1
+  debounce_seconds: 1.5
+  inference_framework: "onnx"
+  allow_pretrained_models: false
+  vad_enabled: true
+  vad_threshold: 0.35
+  noise_suppression_enabled: true
+  noise_suppression_fallback: true
+  log_scores: false
   block_size: 8000
   grammar_enabled: false
 
 greeting:
   text: "小朋友你好"
-  use_prerecorded_audio: true
+  use_prerecorded_audio: false
   audio_path: "assets/audio/greeting.wav"
 
 post_wake_speech:
@@ -108,22 +117,19 @@ llm:
   max_tokens: 500
 
 tts:
-  provider: "local_command"
-  model: "espeak-ng"
-  voice: "cmn"
-  speed: 150
+  provider: "piper"
+  binary: "piper"
+  model_path: "models/piper/zh_CN-huayan-medium.onnx"
+  model_config_path: "models/piper/zh_CN-huayan-medium.onnx.json"
+  speaker: null
+  length_scale: null
+  noise_scale: null
+  noise_w: null
   output_format: "wav"
   enabled: true
   cache_enabled: true
-  command:
-    - "espeak-ng"
-    - "-v"
-    - "cmn"
-    - "-s"
-    - "150"
-    - "-w"
-    - "{output}"
-    - "{text}"
+  command: null
+  output_path: "recordings/piper_tts.wav"
   fallback_audio_path: "assets/audio/greeting.wav"
 
 playback:

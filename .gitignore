@@ -14,6 +14,8 @@ env/
 LOCAL_CREDENTIALS.md
 *.private.md
 config/config.yaml
+config/*.bak*
+config/*.backup_*
 
 # OS/editor files
 .DS_Store
@@ -26,6 +28,7 @@ logs/*
 !logs/.gitkeep
 recordings/*
 !recordings/.gitkeep
+training_data/
 assets/generated/*
 !assets/generated/.gitkeep
 assets/audio/*
