@@ -69,6 +69,14 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
+如果你要使用 `openWakeWord` 做离线唤醒，继续执行：
+
+```bash
+python scripts/install_openwakeword_pi.py
+```
+
+这一步会自动绕过树莓派 `Python 3.12+` 上 `tflite-runtime` 的安装问题，并补齐 `silero_vad.onnx` 和特征提取模型，避免启动时退回“关闭噪声抑制 / 关闭 VAD”的降级模式。
+
 ## 6. 配置密钥和参数
 
 ```bash

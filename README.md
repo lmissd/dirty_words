@@ -128,6 +128,15 @@ python main.py --config config/config.yaml --wakeword-only
 models/openwakeword/fantuan_fantuan.onnx
 ```
 
+另外，首次在树莓派安装 openWakeWord 后，建议补齐运行时资源，这样 `silero_vad.onnx` 和特征模型会完整就位，噪声抑制与 VAD 才能正常生效：
+
+```bash
+source ~/.venv312/bin/activate
+python scripts/install_openwakeword_pi.py
+```
+
+这个脚本会自动处理树莓派 `Python 3.12+` 上 `tflite-runtime` 缺失的问题，并补齐 `silero_vad.onnx` 等运行资源。
+
 如果暂时还没有该模型，可以把 `wakeword.engine` 临时改回 `vosk`，并下载中文回退模型：
 
 ```bash

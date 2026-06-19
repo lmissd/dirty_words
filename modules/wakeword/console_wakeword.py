@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Callable
 
 from modules.wakeword.base import WakeEvent, WakeWordDetector
 
@@ -16,8 +17,10 @@ class ConsoleWakeWordDetector(WakeWordDetector):
         self.wake_words = wake_words
         self.prompt = prompt
 
-    def wait_for_wake(self) -> WakeEvent:
+    def wait_for_wake(self, on_ready: Callable[[], None] | None = None) -> WakeEvent:
         """Wait until the user types a configured wake word."""
+        if on_ready is not None:
+            on_ready()
         LOGGER.info("进入唤醒词监听：%s", self.wake_words)
         while True:
             text = input(f"{self.prompt}\n> ").strip()

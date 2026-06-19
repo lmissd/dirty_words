@@ -24,12 +24,15 @@ FILES = [
     "docs/OFFLINE_WAKEWORD.md",
     "docs/VOICE_WAKEWORD.md",
     "modules/app.py",
+    "modules/recorder/sounddevice_recorder.py",
     "modules/tts/piper_tts.py",
     "modules/wakeword/openwakeword_wakeword.py",
     "requirements.txt",
     "scripts/collect_negative_samples.py",
     "scripts/collect_wakeword_samples.py",
+    "scripts/download_openwakeword_resources.py",
     "scripts/export_wakeword_training_bundle.py",
+    "scripts/install_openwakeword_pi.py",
     "scripts/train_fantuan_wakeword_model.py",
     "scripts/list_audio_devices.py",
     "scripts/play_wake_animation.py",
@@ -40,6 +43,7 @@ FILES = [
     "tests/test_openwakeword_wakeword.py",
     "tests/test_piper_tts.py",
     "tests/test_review_positive_samples.py",
+    "tests/test_sounddevice_recorder.py",
 ]
 
 

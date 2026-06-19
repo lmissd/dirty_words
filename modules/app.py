@@ -74,8 +74,9 @@ class CivilLanguageRobotApp:
     def run_once(self) -> None:
         """Run one full interaction cycle and recover from handled errors."""
         try:
-            self.display.show_standby(_display_wake_words(self.config))
-            event = self.wakeword.wait_for_wake()
+            wake_words = _display_wake_words(self.config)
+            self.display.show_status("正在准备唤醒监听...")
+            event = self.wakeword.wait_for_wake(on_ready=lambda: self.display.show_standby(wake_words))
 
             if bool(self.config.get("greeting.enabled_in_main_flow", True)):
                 self._speak_during_wake_animation(event.wake_word)
@@ -120,12 +121,12 @@ class CivilLanguageRobotApp:
             self.display.show_status("正在分析文明程度。")
             analysis = self.analyzer.analyze(user_text)
 
-            if analysis.civilized and bool(self.config.get("analysis.remind_only_on_uncivilized", True)):
+            if not _should_remind(analysis, self.config):
                 self.display.show_status("这次表达很文明，继续保持。")
                 return
 
             self.display.show_result(user_text, analysis)
-            self.tts.speak(_format_tts_text(analysis.reason, analysis.suggestion))
+            self.tts.speak(_format_tts_text(user_text, analysis.reason, analysis.suggestion))
         finally:
             if audio is not None:
                 self._cleanup_audio(audio.path)
@@ -225,8 +226,8 @@ class WakeGreetingApp:
             wake_words = _display_wake_words(self.config)
             greeting_text = str(self.config.get("greeting.text", "小朋友你好"))
 
-            self.display.show_standby(wake_words)
-            event = self.wakeword.wait_for_wake()
+            self.display.show_status("正在准备唤醒监听...")
+            event = self.wakeword.wait_for_wake(on_ready=lambda: self.display.show_standby(wake_words))
             self._speak_during_wake_animation(event.wake_word, greeting_text)
             self.display.show_greeting_complete()
         except RobotError as exc:
@@ -309,8 +310,9 @@ def run_wakeword_test(config_path: Path) -> None:
     speech_to_text = _build_speech_to_text(config) if wakeword_engine == "stt" else None
     wakeword = _build_wakeword(config, speech_to_text)
 
-    display.show_standby(_display_wake_words(config))
-    event = wakeword.wait_for_wake()
+    wake_words = _display_wake_words(config)
+    display.show_status("正在准备唤醒监听...")
+    event = wakeword.wait_for_wake(on_ready=lambda: display.show_standby(wake_words))
     display.show_status(f"唤醒成功：{event.wake_word}")
 
 
@@ -400,8 +402,21 @@ def _build_display(config: AppConfig) -> Display:
     raise ConfigurationError(f"暂不支持的显示引擎：{engine}")
 
 
-def _format_tts_text(reason: str, suggestion: str) -> str:
-    return f"我来提醒一下。{reason}。更推荐这样说：{suggestion}"
+def _format_tts_text(user_text: str, reason: str, suggestion: str) -> str:
+    quoted_text = _sanitize_tts_quote(user_text)
+    cleaned_reason = reason.strip().rstrip("。！？!?,，")
+    cleaned_suggestion = suggestion.strip().rstrip("。！？!?,，")
+    return (
+        f"小朋友，你刚才说的“{quoted_text}”，存在{cleaned_reason}的问题。"
+        f"我觉得可以换一种表达方式：{cleaned_suggestion}"
+    )
+
+
+def _sanitize_tts_quote(text: str) -> str:
+    cleaned = " ".join(str(text).split())
+    cleaned = cleaned.replace("“", '"').replace("”", '"')
+    cleaned = cleaned.replace('"', "")
+    return cleaned or "刚才那句话"
 
 
 def _display_wake_words(config: AppConfig) -> list[str]:
@@ -409,3 +424,14 @@ def _display_wake_words(config: AppConfig) -> list[str]:
     if display_wake_word:
         return [str(display_wake_word)]
     return list(config.get("wakeword.wake_words", []))
+
+
+def _should_remind(analysis, config: AppConfig) -> bool:
+    if not bool(config.get("analysis.remind_only_on_uncivilized", True)):
+        return True
+
+    remind_below_score = int(config.get("analysis.remind_below_score", 85))
+    if analysis.score < remind_below_score:
+        return True
+
+    return not analysis.civilized

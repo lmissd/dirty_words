@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from modules.app import CivilLanguageRobotApp
+from modules.app import CivilLanguageRobotApp, _format_tts_text, _should_remind
 from modules.models import CivilityAnalysis
 from modules.recorder.base import PcmAudioBuffer, RecordedAudio
 from modules.utils.config_loader import AppConfig
@@ -18,8 +18,10 @@ class FakeWakeWord:
     def __init__(self) -> None:
         self.calls = 0
 
-    def wait_for_wake(self) -> WakeEvent:
+    def wait_for_wake(self, on_ready=None) -> WakeEvent:
         self.calls += 1
+        if on_ready is not None:
+            on_ready()
         return WakeEvent(wake_word="小文小文")
 
 
@@ -70,9 +72,10 @@ class FakeDisplay:
         self.errors: list[str] = []
         self.statuses: list[str] = []
         self.wake_successes: list[str] = []
+        self.standby_calls: list[list[str]] = []
 
     def show_standby(self, wake_words: list[str]) -> None:
-        pass
+        self.standby_calls.append(wake_words)
 
     def show_status(self, message: str) -> None:
         self.statuses.append(message)
@@ -130,6 +133,28 @@ class PreRollSpeechActivity(SequenceSpeechActivity):
 
 
 class AppStateMachineTests(unittest.TestCase):
+    def test_format_tts_text_uses_child_friendly_template(self) -> None:
+        message = _format_tts_text("你真笨", "攻击别人", "我有点不开心，请你好好和我说话")
+
+        self.assertEqual(
+            message,
+            "小朋友，你刚才说的“你真笨”，存在攻击别人的问题。我觉得可以换一种表达方式：我有点不开心，请你好好和我说话",
+        )
+
+    def test_should_remind_when_score_is_below_threshold_even_if_civilized(self) -> None:
+        config = AppConfig(
+            data={"analysis": {"remind_only_on_uncivilized": True, "remind_below_score": 85}},
+            path=Path("config/config.example.yaml"),
+        )
+        analysis = CivilityAnalysis(
+            civilized=True,
+            score=75,
+            reason="说话有点伤人",
+            suggestion="我有点不开心，请你不要这样说",
+        )
+
+        self.assertTrue(_should_remind(analysis, config))
+
     def test_run_once_completes_and_deletes_temp_audio(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             audio_path = Path(temp_dir) / "recording.wav"
@@ -162,6 +187,38 @@ class AppStateMachineTests(unittest.TestCase):
             self.assertEqual(display.errors, [])
             self.assertEqual(len(tts.spoken), 1)
             self.assertFalse(audio_path.exists())
+
+    def test_run_once_shows_standby_only_after_wakeword_ready(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            audio_path = Path(temp_dir) / "recording.wav"
+            display = FakeDisplay()
+            config = AppConfig(
+                data={
+                    "app": {"cycle_pause_seconds": 0, "max_error_pause_seconds": 0},
+                    "privacy": {"keep_recordings": False},
+                    "wakeword": {"wake_words": ["饭团饭团"]},
+                    "greeting": {"enabled_in_main_flow": False},
+                    "post_wake_speech": {"enabled": False},
+                    "analysis": {"remind_only_on_uncivilized": False},
+                },
+                path=Path("config/config.example.yaml"),
+            )
+
+            app = CivilLanguageRobotApp(
+                config=config,
+                wakeword=FakeWakeWord(),
+                recorder=FakeRecorder(audio_path),
+                speech_to_text=FakeSpeechToText(),
+                analyzer=FakeAnalyzer(),
+                display=display,
+                tts=FakeTts(),
+            )
+
+            app.run_once()
+
+            self.assertGreaterEqual(len(display.statuses), 1)
+            self.assertEqual(display.statuses[0], "正在准备唤醒监听...")
+            self.assertEqual(display.standby_calls, [["饭团饭团"]])
 
     def test_run_once_returns_to_standby_when_no_post_wake_speech(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

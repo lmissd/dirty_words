@@ -13,7 +13,9 @@ from modules.wakeword.base import WakeEvent
 
 
 class FakeWakeWord:
-    def wait_for_wake(self) -> WakeEvent:
+    def wait_for_wake(self, on_ready=None) -> WakeEvent:
+        if on_ready is not None:
+            on_ready()
         return WakeEvent(wake_word="范小团你好")
 
 
@@ -100,6 +102,8 @@ class WakeGreetingTests(unittest.TestCase):
         self.assertEqual(display.errors, [])
         self.assertIn("唤醒成功：范小团你好", display.statuses)
         self.assertIn("问候完成，返回待机。", display.statuses)
+        self.assertEqual(display.statuses[0], "正在准备唤醒监听...")
+        self.assertIn("范小团你好", display.statuses[1])
 
     def test_greeting_audio_starts_during_wake_animation(self) -> None:
         tts_started = threading.Event()

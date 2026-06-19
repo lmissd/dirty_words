@@ -6,6 +6,7 @@ import json
 import logging
 import queue
 from pathlib import Path
+from typing import Callable
 
 from modules.utils.audio_devices import resolve_input_device
 from modules.utils.config_loader import AppConfig
@@ -33,7 +34,7 @@ class VoskWakeWordDetector(WakeWordDetector):
 
         self.vosk_model = self._load_model()
 
-    def wait_for_wake(self) -> WakeEvent:
+    def wait_for_wake(self, on_ready: Callable[[], None] | None = None) -> WakeEvent:
         """Listen locally until a configured wake word is detected."""
         try:
             import sounddevice as sd
@@ -49,8 +50,6 @@ class VoskWakeWordDetector(WakeWordDetector):
             channels=self.channels,
             sd_module=sd,
         )
-        LOGGER.info("开始 Vosk 本地离线唤醒监听：%s", self.matcher_config.display_wake_word)
-
         try:
             with sd.RawInputStream(
                 samplerate=self.sample_rate,
@@ -60,6 +59,9 @@ class VoskWakeWordDetector(WakeWordDetector):
                 channels=self.channels,
                 callback=self._audio_callback,
             ):
+                LOGGER.info("开始 Vosk 本地离线唤醒监听：%s", self.matcher_config.display_wake_word)
+                if on_ready is not None:
+                    on_ready()
                 while True:
                     data = self._audio_queue.get()
                     text = self._recognize_chunk(recognizer, data)

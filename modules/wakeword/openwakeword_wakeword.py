@@ -77,7 +77,7 @@ class OpenWakeWordDetector(WakeWordDetector):
         self._sd_module = sd_module
         self._model: Any | None = None
 
-    def wait_for_wake(self) -> WakeEvent:
+    def wait_for_wake(self, on_ready: Callable[[], None] | None = None) -> WakeEvent:
         """Listen until openWakeWord reports the configured wake phrase."""
         sd = self._load_sounddevice()
         model = self._load_model()
@@ -90,17 +90,6 @@ class OpenWakeWordDetector(WakeWordDetector):
             sd_module=sd,
         )
 
-        LOGGER.info(
-            "开始 openWakeWord 本地唤醒监听：%s input=%sHz model=%sHz frame=%sms threshold=%.2f vad=%.2f rms=%s",
-            self.display_wake_word,
-            self.input_sample_rate,
-            self.model_sample_rate,
-            self.frame_ms,
-            self.threshold,
-            self.vad_threshold,
-            self._rms_gate_description(),
-        )
-
         try:
             with sd.RawInputStream(
                 samplerate=self.input_sample_rate,
@@ -110,6 +99,18 @@ class OpenWakeWordDetector(WakeWordDetector):
                 channels=self.channels,
                 callback=self._audio_callback,
             ):
+                LOGGER.info(
+                    "开始 openWakeWord 本地唤醒监听：%s input=%sHz model=%sHz frame=%sms threshold=%.2f vad=%.2f rms=%s",
+                    self.display_wake_word,
+                    self.input_sample_rate,
+                    self.model_sample_rate,
+                    self.frame_ms,
+                    self.threshold,
+                    self.vad_threshold,
+                    self._rms_gate_description(),
+                )
+                if on_ready is not None:
+                    on_ready()
                 while True:
                     data = self._audio_queue.get()
                     for frame in self._prepare_model_frames(data):
@@ -162,17 +163,32 @@ class OpenWakeWordDetector(WakeWordDetector):
         while True:
             try:
                 self._model = factory(**kwargs)
+                LOGGER.info(
+                    "openWakeWord 运行增强：噪声抑制=%s VAD=%s",
+                    "开启" if kwargs["enable_speex_noise_suppression"] else "关闭",
+                    f"开启(threshold={float(kwargs['vad_threshold']):.2f})"
+                    if float(kwargs["vad_threshold"]) > 0
+                    else "关闭",
+                )
                 break
             except ModuleNotFoundError as exc:
                 if "noise_suppression" in remaining_fallbacks and self._can_retry_without_noise_suppression(exc):
-                    LOGGER.warning("Speex 噪声抑制依赖缺失，已自动关闭噪声抑制后重试：%s", exc)
+                    LOGGER.warning(
+                        "Speex 噪声抑制依赖缺失，已自动关闭噪声抑制后重试：%s。"
+                        "如需恢复，请执行 `pip install speexdsp-ns`。",
+                        exc,
+                    )
                     kwargs["enable_speex_noise_suppression"] = False
                     remaining_fallbacks.remove("noise_suppression")
                     continue
                 raise ConfigurationError(f"初始化 openWakeWord 模型失败：{exc}") from exc
             except Exception as exc:
                 if "vad" in remaining_fallbacks and self._can_retry_without_vad(exc):
-                    LOGGER.warning("VAD 资源缺失或初始化失败，已自动关闭 VAD 后重试：%s", exc)
+                    LOGGER.warning(
+                        "VAD 资源缺失或初始化失败，已自动关闭 VAD 后重试：%s。"
+                        "如需恢复，请执行 `python scripts/download_openwakeword_resources.py`。",
+                        exc,
+                    )
                     kwargs["vad_threshold"] = 0.0
                     remaining_fallbacks.remove("vad")
                     continue

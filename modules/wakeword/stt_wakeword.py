@@ -6,6 +6,7 @@ import logging
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Callable
 
 from modules.speech_to_text.base import SpeechToTextProvider
 from modules.utils.audio_devices import resolve_input_device
@@ -34,9 +35,11 @@ class SttWakeWordDetector(WakeWordDetector):
         self.delete_chunks = bool(config.get("wakeword.delete_chunks", True))
         self.output_dir = Path(str(config.get("paths.audio_temp_dir", "recordings")))
 
-    def wait_for_wake(self) -> WakeEvent:
+    def wait_for_wake(self, on_ready: Callable[[], None] | None = None) -> WakeEvent:
         """Continuously listen until a configured wake word is heard."""
         LOGGER.info("开始 STT 语音唤醒监听：%s", self.wake_words)
+        if on_ready is not None:
+            on_ready()
         while True:
             chunk_path = self._record_chunk()
             try:
