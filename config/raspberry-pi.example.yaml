@@ -151,6 +151,7 @@ analysis:
 
 tts:
   provider: "piper"
+  # 如果要切换到腾讯云 TTS，可改成 "tencentcloud"
   binary:
     - "/home/pi/.venv312/bin/python"
     - "-m"
@@ -165,11 +166,27 @@ tts:
   volume: 1.0
   no_normalize: false
   output_format: "wav"
+  codec: "wav"
+  sample_rate: 16000
+  model_type: 1
+  voice_type: 101001
+  primary_language: 1
+  speed: 0
+  volume: 0
+  enable_subtitle: false
+  segment_rate: 0
+  emotion_category: ""
+  emotion_intensity: 100
   enabled: true
   cache_enabled: false
   command: null
   output_path: "recordings/piper_tts.wav"
   fallback_audio_path: "assets/audio/greeting.wav"
+
+tencentcloud_tts:
+  secret_id_env: "TENCENTCLOUD_SECRET_ID"
+  secret_key_env: "TENCENTCLOUD_SECRET_KEY"
+  region: "ap-shanghai"
 
 playback:
   enabled: true

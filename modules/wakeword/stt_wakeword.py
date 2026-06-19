@@ -12,7 +12,7 @@ from modules.speech_to_text.base import SpeechToTextProvider
 from modules.utils.audio_devices import resolve_input_device
 from modules.utils.config_loader import AppConfig
 from modules.utils.disk import ensure_free_space
-from modules.utils.errors import AudioInputError
+from modules.utils.errors import ApiError, AudioInputError
 from modules.wakeword.base import WakeEvent, WakeWordDetector
 from modules.wakeword.matcher import WakeMatcherConfig, match_wake_phrase
 
@@ -43,7 +43,12 @@ class SttWakeWordDetector(WakeWordDetector):
         while True:
             chunk_path = self._record_chunk()
             try:
-                transcript = self.speech_to_text.transcribe(chunk_path)
+                try:
+                    transcript = self.speech_to_text.transcribe(chunk_path)
+                except ApiError as exc:
+                    LOGGER.info("本轮唤醒片段未识别到有效文本，继续监听：%s", exc)
+                    time.sleep(self.idle_pause_seconds)
+                    continue
                 matched = match_wake_phrase(transcript, self.matcher_config)
                 LOGGER.info("唤醒词片段识别：%s", transcript)
                 if matched is not None:

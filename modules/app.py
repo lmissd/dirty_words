@@ -27,6 +27,7 @@ from modules.tts.local_command_tts import LocalCommandTextToSpeech
 from modules.tts.local_audio_tts import LocalAudioTextToSpeech
 from modules.tts.openai_tts import OpenAITextToSpeech
 from modules.tts.piper_tts import PiperTextToSpeech
+from modules.tts.tencentcloud_tts import TencentCloudTextToSpeech
 from modules.utils.audio_player import AudioPlayer
 from modules.utils.config_loader import AppConfig, load_config
 from modules.utils.errors import ConfigurationError, RobotError
@@ -379,6 +380,8 @@ def _build_tts(config: AppConfig, audio_player: AudioPlayer) -> TextToSpeechProv
     provider = str(config.get("tts.provider", "openai")).lower()
     if provider == "openai":
         return OpenAITextToSpeech(config, audio_player)
+    if provider in {"tencentcloud", "tencent_tts", "tencent"}:
+        return TencentCloudTextToSpeech(config, audio_player)
     if provider == "piper":
         return PiperTextToSpeech(config, audio_player)
     if provider == "local_command":
