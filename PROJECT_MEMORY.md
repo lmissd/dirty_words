@@ -108,6 +108,7 @@ docs/
 真实配置文件 `config/config.yaml` 不入库。公开仓库只保留 `config/config.example.yaml`。
 
 API Key、树莓派密码和其他敏感信息不写入代码、不写入 README、不提交 GitHub。需要本地保存时使用被 `.gitignore` 忽略的文件，例如 `.env` 或 `LOCAL_CREDENTIALS.md`。
+`.env` 属于高敏感运行配置。本地 `D:\Raspberry\dirty_words\.env` 和树莓派 `/home/pi/dirty_words/.env` 后续都不要轻易覆盖；任何更新都必须先检查现有内容、先做备份，再执行写入。除非用户明确确认，否则不要用模板文件、临时文件或脚本默认值直接覆盖现有 `.env`。
 
 ## 第一阶段目标
 
