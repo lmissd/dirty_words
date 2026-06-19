@@ -20,6 +20,7 @@ from modules.recorder.sounddevice_recorder import SoundDeviceRecorder
 from modules.speech_to_text.base import SpeechToTextProvider
 from modules.speech_to_text.openai_stt import OpenAISpeechToText
 from modules.speech_to_text.static_stt import StaticSpeechToText
+from modules.speech_to_text.tencentcloud_stt import TencentCloudSpeechToText
 from modules.speech_to_text.vosk_stt import VoskSpeechToText
 from modules.tts.base import TextToSpeechProvider
 from modules.tts.local_command_tts import LocalCommandTextToSpeech
@@ -356,6 +357,8 @@ def _build_speech_to_text(config: AppConfig) -> SpeechToTextProvider:
     provider = str(config.get("speech_to_text.provider", "openai")).lower()
     if provider == "openai":
         return OpenAISpeechToText(config)
+    if provider in {"tencentcloud", "tencent", "tencent_asr"}:
+        return TencentCloudSpeechToText(config)
     if provider in {"vosk", "local_vosk", "offline_vosk"}:
         return VoskSpeechToText(config)
     if provider in {"static", "offline_stub"}:

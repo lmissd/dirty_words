@@ -1,4 +1,5 @@
 openai>=1.40.0
+tencentcloud-sdk-python-asr>=3.0.1416
 python-dotenv>=1.0.1
 PyYAML>=6.0.2
 numpy>=1.26.0

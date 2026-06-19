@@ -39,6 +39,20 @@ deepseek:
   timeout_seconds: 30
   max_retries: 2
 
+tencentcloud:
+  secret_id_env: "TENCENTCLOUD_SECRET_ID"
+  secret_key_env: "TENCENTCLOUD_SECRET_KEY"
+  region: "ap-shanghai"
+  engine_model_type: "16k_zh"
+  voice_format: "wav"
+  convert_num_mode: 1
+  filter_dirty: 0
+  filter_modal: 0
+  filter_punc: 0
+  word_info: 0
+  hotword_id: ""
+  hotword_list: "饭团饭团|11,范小团|10,小朋友|8"
+
 wakeword:
   engine: "openwakeword"
   display_wake_word: "饭团饭团"

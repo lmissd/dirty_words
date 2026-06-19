@@ -75,9 +75,19 @@ Copy-Item .env.example .env
 ```text
 OPENAI_API_KEY=你的 OpenAI API Key
 DEEPSEEK_API_KEY=你的 DeepSeek API Key
+TENCENTCLOUD_SECRET_ID=你的腾讯云 SecretId
+TENCENTCLOUD_SECRET_KEY=你的腾讯云 SecretKey
 ```
 
 不要把真实 API Key、树莓派密码或其他凭据提交到仓库。
+
+如果正式语音识别要切换到腾讯云，请把 `speech_to_text.provider` 改为 `tencentcloud`，并在配置中保留：
+```yaml
+tencentcloud:
+  region: "ap-shanghai"
+  engine_model_type: "16k_zh"
+  hotword_list: "饭团饭团|11,范小团|10,小朋友|8"
+```
 
 ## 本地开发
 
