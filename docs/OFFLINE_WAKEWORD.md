@@ -185,12 +185,14 @@ wakeword:
     - "models/openwakeword/fantuan_fantuan.onnx"
   target_labels:
     - "fantuan_fantuan"
-  threshold: 0.5
-  patience_frames: 1
-  debounce_seconds: 1.5
+  threshold: 0.78
+  patience_frames: 3
+  debounce_seconds: 2.5
+  rms_threshold: 180
+  rms_patience_frames: 2
   inference_framework: "onnx"
   vad_enabled: true
-  vad_threshold: 0.35
+  vad_threshold: 0.55
   noise_suppression_enabled: true
   noise_suppression_fallback: true
 ```

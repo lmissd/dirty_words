@@ -104,13 +104,22 @@ models/piper/
 
 ```yaml
 greeting:
+  tts_text: "小朋友，你好呀。"
   use_prerecorded_audio: false
 
 tts:
   provider: "piper"
-  binary: "piper"
+  binary:
+    - "/home/pi/.venv312/bin/python"
+    - "-m"
+    - "piper"
   model_path: "models/piper/zh_CN-huayan-medium.onnx"
   model_config_path: "models/piper/zh_CN-huayan-medium.onnx.json"
+  length_scale: 1.12
+  noise_scale: 0.82
+  noise_w: 0.95
+  sentence_silence: 0.18
+  cache_enabled: false
 ```
 
 4. 下载中文模型：

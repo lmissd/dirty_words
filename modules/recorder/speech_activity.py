@@ -6,7 +6,9 @@ import logging
 import queue
 import struct
 import time
+from collections import deque
 
+from modules.recorder.base import PcmAudioBuffer
 from modules.utils.audio_devices import resolve_input_device
 from modules.utils.config_loader import AppConfig
 from modules.utils.errors import AudioInputError
@@ -27,6 +29,8 @@ class SpeechActivityDetector:
         self.block_seconds = float(config.get("post_wake_speech.block_seconds", 0.25))
         self.threshold = int(config.get("post_wake_speech.rms_threshold", 500))
         self.required_blocks = int(config.get("post_wake_speech.required_blocks", 2))
+        self.pre_roll_seconds = float(config.get("post_wake_speech.pre_roll_seconds", 1.0))
+        self.last_pre_roll_audio: PcmAudioBuffer | None = None
         self._audio_queue: queue.Queue[bytes] = queue.Queue()
 
     def wait_for_speech(self, timeout_seconds: float) -> bool:
@@ -39,6 +43,9 @@ class SpeechActivityDetector:
         block_size = max(1, int(self.sample_rate * self.block_seconds))
         deadline = time.monotonic() + timeout_seconds
         speech_blocks = 0
+        self.last_pre_roll_audio = None
+        self._drain_audio_queue()
+        pre_roll_blocks: deque[bytes] = deque(maxlen=max(1, int(self.pre_roll_seconds / self.block_seconds) + 1))
         device = resolve_input_device(
             self.config,
             "post_wake_speech.device",
@@ -64,10 +71,16 @@ class SpeechActivityDetector:
                         continue
 
                     rms = _pcm16_rms(data)
+                    pre_roll_blocks.append(data)
                     LOGGER.debug("唤醒后语音活动 RMS：%s", rms)
                     if rms >= self.threshold:
                         speech_blocks += 1
                         if speech_blocks >= self.required_blocks:
+                            self.last_pre_roll_audio = PcmAudioBuffer(
+                                data=b"".join(pre_roll_blocks),
+                                sample_rate=self.sample_rate,
+                                channels=self.channels,
+                            )
                             LOGGER.info("检测到唤醒后的语音活动，RMS=%s", rms)
                             return True
                     else:
@@ -82,6 +95,13 @@ class SpeechActivityDetector:
         if status:
             LOGGER.warning("语音活动检测音频输入状态：%s", status)
         self._audio_queue.put(bytes(indata))
+
+    def _drain_audio_queue(self) -> None:
+        while True:
+            try:
+                self._audio_queue.get_nowait()
+            except queue.Empty:
+                return
 
 
 def _pcm16_rms(data: bytes) -> int:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import shutil
 import subprocess
 from datetime import datetime
@@ -15,6 +16,8 @@ from modules.utils.disk import ensure_free_space
 from modules.utils.errors import AudioOutputError, ConfigurationError
 
 LOGGER = logging.getLogger(__name__)
+_DEFAULT_GREETING_TEXT = "小朋友你好"
+_TERMINAL_PUNCTUATION = "。！？!?，,；;：:… "
 
 
 class PiperTextToSpeech(TextToSpeechProvider):
@@ -31,12 +34,13 @@ class PiperTextToSpeech(TextToSpeechProvider):
             return None
 
         output_path = self._resolve_output_path(text)
+        spoken_text = self._prepare_text(text)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         ensure_free_space(output_path.parent)
 
         cache_enabled = bool(self.config.get("tts.cache_enabled", True))
-        if not cache_enabled or not output_path.exists():
-            command = self._build_command(text, output_path)
+        if not cache_enabled or not output_path.exists() or self._must_regenerate_dynamic_text(text):
+            command = self._build_command(spoken_text, output_path)
             LOGGER.info("执行 Piper TTS 命令：%s", command)
             try:
                 subprocess.run(command, check=True)
@@ -50,7 +54,7 @@ class PiperTextToSpeech(TextToSpeechProvider):
         return output_path
 
     def _resolve_output_path(self, text: str) -> Path:
-        greeting_text = str(self.config.get("greeting.text", "小朋友你好"))
+        greeting_text = str(self.config.get("greeting.text", _DEFAULT_GREETING_TEXT))
         if text == greeting_text:
             return Path(str(self.config.get("greeting.audio_path", "assets/audio/greeting.wav")))
 
@@ -62,15 +66,34 @@ class PiperTextToSpeech(TextToSpeechProvider):
         filename = datetime.now().strftime("piper_tts_%Y%m%d_%H%M%S.wav")
         return output_dir / filename
 
+    def _must_regenerate_dynamic_text(self, text: str) -> bool:
+        """Avoid replaying stale cached audio when a fixed output path is used for dynamic text."""
+        greeting_text = str(self.config.get("greeting.text", _DEFAULT_GREETING_TEXT))
+        return text != greeting_text and self.config.get("tts.output_path", None) is not None
+
+    def _prepare_text(self, text: str) -> str:
+        greeting_text = str(self.config.get("greeting.text", _DEFAULT_GREETING_TEXT))
+        if text == greeting_text:
+            text = str(self.config.get("greeting.tts_text", text))
+
+        normalized = str(text).replace("\r\n", "\n").replace("\r", "\n").strip()
+        normalized = re.sub(r"\n+", "。", normalized)
+        normalized = re.sub(r"\s+", " ", normalized).strip()
+
+        if normalized and normalized[-1] not in _TERMINAL_PUNCTUATION:
+            normalized = f"{normalized}。"
+
+        return normalized
+
     def _build_command(self, text: str, output_path: Path) -> list[str]:
         command_template = self.config.get("tts.command", None)
         if command_template is not None:
             return [str(part).format(text=text, output=str(output_path)) for part in list(command_template)]
 
-        binary = str(self.config.get("tts.binary", "piper"))
-        if shutil.which(binary) is None:
+        binary_command = self._resolve_binary_command()
+        if not binary_command:
             raise ConfigurationError(
-                f"未找到 Piper 可执行文件：{binary}。请先安装 Piper，或在 tts.binary 中填写完整路径。"
+                "缺少 tts.binary 配置。请填写 Piper 可执行文件，或用列表形式配置 python -m piper。"
             )
 
         raw_model_path = str(self.config.get("tts.model_path", "")).strip()
@@ -82,14 +105,22 @@ class PiperTextToSpeech(TextToSpeechProvider):
 
         config_path = self.config.get("tts.model_config_path", None)
         command = [
-            binary,
-            "--model",
+            *binary_command,
+            "-m",
             str(model_path),
-            "--output_file",
+            "-f",
             str(output_path),
         ]
         if config_path:
-            command.extend(["--config", str(Path(str(config_path)).expanduser())])
+            resolved_config_path = Path(str(config_path)).expanduser()
+            if resolved_config_path.exists():
+                LOGGER.info("检测到 Piper 模型配置文件：%s", resolved_config_path)
+                command.extend(["-c", str(resolved_config_path)])
+            else:
+                LOGGER.warning(
+                    "配置中的 Piper 模型配置文件不存在：%s，将让 Piper 自动推断。",
+                    resolved_config_path,
+                )
 
         speaker = self.config.get("tts.speaker", None)
         if speaker is not None:
@@ -97,15 +128,51 @@ class PiperTextToSpeech(TextToSpeechProvider):
 
         length_scale = self.config.get("tts.length_scale", None)
         if length_scale is not None:
-            command.extend(["--length_scale", str(length_scale)])
+            command.extend(["--length-scale", str(length_scale)])
 
         noise_scale = self.config.get("tts.noise_scale", None)
         if noise_scale is not None:
-            command.extend(["--noise_scale", str(noise_scale)])
+            command.extend(["--noise-scale", str(noise_scale)])
 
         noise_w = self.config.get("tts.noise_w", None)
         if noise_w is not None:
-            command.extend(["--noise_w", str(noise_w)])
+            command.extend(["--noise-w-scale", str(noise_w)])
 
-        command.append(text)
+        sentence_silence = self.config.get("tts.sentence_silence", None)
+        if sentence_silence is not None:
+            command.extend(["--sentence-silence", str(sentence_silence)])
+
+        volume = self.config.get("tts.volume", None)
+        if volume is not None:
+            command.extend(["--volume", str(volume)])
+
+        if bool(self.config.get("tts.no_normalize", False)):
+            command.append("--no-normalize")
+
+        command.extend(["--", text])
         return command
+
+    def _resolve_binary_command(self) -> list[str]:
+        raw_binary = self.config.get("tts.binary", "piper")
+        if isinstance(raw_binary, str):
+            command = [raw_binary.strip()]
+        else:
+            command = [str(part).strip() for part in list(raw_binary) if str(part).strip()]
+
+        if not command:
+            return []
+
+        binary = command[0]
+        if not self._binary_exists(binary):
+            raise ConfigurationError(
+                f"未找到 Piper 可执行文件：{' '.join(command)}。请先安装 Piper，或在 tts.binary 中填写完整路径。"
+            )
+
+        return command
+
+    @staticmethod
+    def _binary_exists(binary: str) -> bool:
+        binary_path = Path(binary).expanduser()
+        if binary_path.exists():
+            return True
+        return shutil.which(binary) is not None

@@ -14,12 +14,13 @@ from modules.display.tkinter_display import TkinterDisplay
 from modules.llm.base import CivilLanguageAnalyzer
 from modules.llm.deepseek_civil_analyzer import DeepSeekCivilLanguageAnalyzer
 from modules.llm.openai_civil_analyzer import OpenAICivilLanguageAnalyzer
-from modules.recorder.base import AudioRecorder, RecordedAudio
+from modules.recorder.base import AudioRecorder, PcmAudioBuffer, RecordedAudio
 from modules.recorder.speech_activity import SpeechActivityDetector
 from modules.recorder.sounddevice_recorder import SoundDeviceRecorder
 from modules.speech_to_text.base import SpeechToTextProvider
 from modules.speech_to_text.openai_stt import OpenAISpeechToText
 from modules.speech_to_text.static_stt import StaticSpeechToText
+from modules.speech_to_text.vosk_stt import VoskSpeechToText
 from modules.tts.base import TextToSpeechProvider
 from modules.tts.local_command_tts import LocalCommandTextToSpeech
 from modules.tts.local_audio_tts import LocalAudioTextToSpeech
@@ -50,6 +51,7 @@ class CivilLanguageRobotApp:
         display: Display,
         tts: TextToSpeechProvider,
         speech_activity: SpeechActivityDetector | None = None,
+        greeting_tts: TextToSpeechProvider | None = None,
     ) -> None:
         self.config = config
         self.wakeword = wakeword
@@ -59,6 +61,7 @@ class CivilLanguageRobotApp:
         self.display = display
         self.tts = tts
         self.speech_activity = speech_activity
+        self.greeting_tts = greeting_tts or tts
         self._logger = logging.getLogger(self.__class__.__name__)
 
     def run_forever(self) -> None:
@@ -70,25 +73,17 @@ class CivilLanguageRobotApp:
 
     def run_once(self) -> None:
         """Run one full interaction cycle and recover from handled errors."""
-        audio: RecordedAudio | None = None
         try:
             self.display.show_standby(_display_wake_words(self.config))
-            self.wakeword.wait_for_wake()
+            event = self.wakeword.wait_for_wake()
 
-            if not self._wait_for_post_wake_speech():
-                return
+            if bool(self.config.get("greeting.enabled_in_main_flow", True)):
+                self._speak_during_wake_animation(event.wake_word)
 
-            self.display.show_status("已唤醒，开始录音。")
-            audio = self.recorder.record()
-
-            self.display.show_status("正在识别语音。")
-            user_text = self.speech_to_text.transcribe(audio.path)
-
-            self.display.show_status("正在分析文明程度。")
-            analysis = self.analyzer.analyze(user_text)
-
-            self.display.show_result(user_text, analysis)
-            self.tts.speak(_format_tts_text(analysis.reason, analysis.suggestion))
+            if self._should_run_continuous_session():
+                self._run_continuous_post_wake_session()
+            else:
+                self._run_single_interaction_cycle()
         except RobotError as exc:
             self._logger.warning("本轮流程发生可恢复错误：%s", exc)
             self.display.show_error(str(exc))
@@ -98,9 +93,56 @@ class CivilLanguageRobotApp:
             self.display.show_error("系统遇到未知错误，正在返回待机。")
             time.sleep(float(self.config.get("app.max_error_pause_seconds", 5)))
             self._logger.debug("未知错误详情：%s", exc)
+
+    def _run_continuous_post_wake_session(self) -> None:
+        """Keep listening after wake until no speech is detected within the timeout."""
+        while True:
+            if not self._wait_for_post_wake_speech():
+                return
+            pre_roll_audio = self._consume_post_wake_pre_roll()
+            try:
+                self._run_single_interaction_cycle(pre_roll_audio=pre_roll_audio)
+            except RobotError as exc:
+                self._logger.warning("本次语音处理失败，继续保持唤醒后的监听状态：%s", exc)
+                self.display.show_status("这句话没有听清或处理失败，请再说一遍。")
+                time.sleep(float(self.config.get("post_wake_speech.error_pause_seconds", 1)))
+
+    def _run_single_interaction_cycle(self, pre_roll_audio: PcmAudioBuffer | None = None) -> None:
+        """Record, transcribe, analyze, and optionally remind for one utterance."""
+        audio: RecordedAudio | None = None
+        try:
+            self.display.show_status("已唤醒，开始录音。")
+            audio = self.recorder.record(pre_roll_audio=pre_roll_audio)
+
+            self.display.show_status("正在识别语音。")
+            user_text = self.speech_to_text.transcribe(audio.path)
+
+            self.display.show_status("正在分析文明程度。")
+            analysis = self.analyzer.analyze(user_text)
+
+            if analysis.civilized and bool(self.config.get("analysis.remind_only_on_uncivilized", True)):
+                self.display.show_status("这次表达很文明，继续保持。")
+                return
+
+            self.display.show_result(user_text, analysis)
+            self.tts.speak(_format_tts_text(analysis.reason, analysis.suggestion))
         finally:
             if audio is not None:
                 self._cleanup_audio(audio.path)
+
+    def _consume_post_wake_pre_roll(self) -> PcmAudioBuffer | None:
+        """Return the audio captured during post-wake speech detection, if available."""
+        if self.speech_activity is None:
+            return None
+        return getattr(self.speech_activity, "last_pre_roll_audio", None)
+
+    def _should_run_continuous_session(self) -> bool:
+        """Return True when the post-wake flow should stay active until silence timeout."""
+        return (
+            bool(self.config.get("post_wake_speech.enabled", True))
+            and self.speech_activity is not None
+            and bool(self.config.get("post_wake_speech.continuous_session", True))
+        )
 
     def _cleanup_audio(self, audio_path: Path) -> None:
         keep_recordings = bool(self.config.get("privacy.keep_recordings", False))
@@ -131,6 +173,27 @@ class CivilLanguageRobotApp:
 
         self.display.show_status("没有听到新的语音，返回待机。")
         return False
+
+    def _speak_during_wake_animation(self, wake_word: str) -> None:
+        greeting_text = str(self.config.get("greeting.text", "小朋友你好"))
+        errors: list[Exception] = []
+
+        def speak_greeting() -> None:
+            try:
+                self._logger.info("播放唤醒问候语：%s", greeting_text)
+                self.greeting_tts.speak(greeting_text)
+            except Exception as exc:
+                errors.append(exc)
+
+        thread = threading.Thread(target=speak_greeting, name="civil-flow-greeting-tts", daemon=True)
+        thread.start()
+        try:
+            self.display.show_wake_success(wake_word)
+        finally:
+            thread.join()
+
+        if errors:
+            raise errors[0]
 
 
 class WakeGreetingApp:
@@ -215,6 +278,7 @@ def build_app(config_path: Path) -> CivilLanguageRobotApp:
         display=display,
         tts=_build_tts(config, audio_player),
         speech_activity=_build_speech_activity(config),
+        greeting_tts=_build_greeting_tts(config, audio_player),
     )
 
 
@@ -290,6 +354,8 @@ def _build_speech_to_text(config: AppConfig) -> SpeechToTextProvider:
     provider = str(config.get("speech_to_text.provider", "openai")).lower()
     if provider == "openai":
         return OpenAISpeechToText(config)
+    if provider in {"vosk", "local_vosk", "offline_vosk"}:
+        return VoskSpeechToText(config)
     if provider in {"static", "offline_stub"}:
         return StaticSpeechToText(config)
     raise ConfigurationError(f"暂不支持的语音识别供应商：{provider}")
@@ -335,7 +401,7 @@ def _build_display(config: AppConfig) -> Display:
 
 
 def _format_tts_text(reason: str, suggestion: str) -> str:
-    return f"检测完成。{reason}。建议：{suggestion}"
+    return f"我来提醒一下。{reason}。更推荐这样说：{suggestion}"
 
 
 def _display_wake_words(config: AppConfig) -> list[str]:

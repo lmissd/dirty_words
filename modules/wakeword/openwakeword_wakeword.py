@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import queue
 import time
 from pathlib import Path
@@ -43,6 +44,8 @@ class OpenWakeWordDetector(WakeWordDetector):
         self.threshold = float(config.get("wakeword.threshold", 0.5))
         self.patience_frames = max(1, int(config.get("wakeword.patience_frames", 1)))
         self.debounce_seconds = max(0.0, float(config.get("wakeword.debounce_seconds", 1.5)))
+        self.rms_threshold = max(0, int(config.get("wakeword.rms_threshold", 180)))
+        self.rms_patience_frames = max(1, int(config.get("wakeword.rms_patience_frames", 2)))
         self.inference_framework = str(config.get("wakeword.inference_framework", "onnx")).lower()
         self.noise_suppression_enabled = bool(config.get("wakeword.noise_suppression_enabled", True))
         self.noise_suppression_fallback = bool(config.get("wakeword.noise_suppression_fallback", True))
@@ -67,6 +70,7 @@ class OpenWakeWordDetector(WakeWordDetector):
         self._audio_queue: queue.Queue[bytes] = queue.Queue()
         self._model_audio_buffer = np.empty(0, dtype=np.int16)
         self._hit_counts: dict[str, int] = {}
+        self._speech_frame_count = 0
         self._last_trigger_time = 0.0
         self._last_score_log_time = 0.0
         self._model_factory = model_factory
@@ -87,13 +91,14 @@ class OpenWakeWordDetector(WakeWordDetector):
         )
 
         LOGGER.info(
-            "开始 openWakeWord 本地唤醒监听：%s input=%sHz model=%sHz frame=%sms threshold=%.2f vad=%.2f",
+            "开始 openWakeWord 本地唤醒监听：%s input=%sHz model=%sHz frame=%sms threshold=%.2f vad=%.2f rms=%s",
             self.display_wake_word,
             self.input_sample_rate,
             self.model_sample_rate,
             self.frame_ms,
             self.threshold,
             self.vad_threshold,
+            self._rms_gate_description(),
         )
 
         try:
@@ -108,6 +113,8 @@ class OpenWakeWordDetector(WakeWordDetector):
                 while True:
                     data = self._audio_queue.get()
                     for frame in self._prepare_model_frames(data):
+                        if not self._should_process_frame(frame):
+                            continue
                         predictions = model.predict(frame)
                         matched_label = self._match_predictions(predictions)
                         if matched_label is not None:
@@ -151,17 +158,25 @@ class OpenWakeWordDetector(WakeWordDetector):
             "inference_framework": self.inference_framework,
         }
 
-        try:
-            self._model = factory(**kwargs)
-        except ModuleNotFoundError as exc:
-            if self._can_retry_without_noise_suppression(exc):
-                LOGGER.warning("Speex 噪声抑制依赖缺失，已自动关闭噪声抑制后重试：%s", exc)
-                kwargs["enable_speex_noise_suppression"] = False
+        remaining_fallbacks = {"noise_suppression", "vad"}
+        while True:
+            try:
                 self._model = factory(**kwargs)
-            else:
+                break
+            except ModuleNotFoundError as exc:
+                if "noise_suppression" in remaining_fallbacks and self._can_retry_without_noise_suppression(exc):
+                    LOGGER.warning("Speex 噪声抑制依赖缺失，已自动关闭噪声抑制后重试：%s", exc)
+                    kwargs["enable_speex_noise_suppression"] = False
+                    remaining_fallbacks.remove("noise_suppression")
+                    continue
                 raise ConfigurationError(f"初始化 openWakeWord 模型失败：{exc}") from exc
-        except Exception as exc:
-            raise ConfigurationError(f"初始化 openWakeWord 模型失败：{exc}") from exc
+            except Exception as exc:
+                if "vad" in remaining_fallbacks and self._can_retry_without_vad(exc):
+                    LOGGER.warning("VAD 资源缺失或初始化失败，已自动关闭 VAD 后重试：%s", exc)
+                    kwargs["vad_threshold"] = 0.0
+                    remaining_fallbacks.remove("vad")
+                    continue
+                raise ConfigurationError(f"初始化 openWakeWord 模型失败：{exc}") from exc
 
         return self._model
 
@@ -194,10 +209,20 @@ class OpenWakeWordDetector(WakeWordDetector):
             and "speex" in missing_name.lower()
         )
 
+    def _can_retry_without_vad(self, exc: Exception) -> bool:
+        message = f"{type(exc).__name__}: {exc}".lower()
+        return self.vad_enabled and self.vad_threshold > 0 and (
+            "silero_vad.onnx" in message
+            or "no_suchfile" in message
+            or "nosuchfile" in message
+            or "file doesn't exist" in message
+        )
+
     def _reset_runtime_state(self, model: Any) -> None:
         self._clear_audio_queue()
         self._model_audio_buffer = np.empty(0, dtype=np.int16)
         self._hit_counts.clear()
+        self._speech_frame_count = 0
         if hasattr(model, "reset"):
             model.reset()
 
@@ -232,6 +257,19 @@ class OpenWakeWordDetector(WakeWordDetector):
 
         self._model_audio_buffer = model_samples[offset:].copy()
         return frames
+
+    def _should_process_frame(self, frame: np.ndarray) -> bool:
+        if self.rms_threshold <= 0:
+            return True
+
+        rms = pcm16_rms(frame)
+        if rms < self.rms_threshold:
+            self._speech_frame_count = 0
+            self._hit_counts.clear()
+            return False
+
+        self._speech_frame_count += 1
+        return self._speech_frame_count >= self.rms_patience_frames
 
     def _match_predictions(self, predictions: dict[str, Any]) -> str | None:
         self._log_predictions(predictions)
@@ -269,6 +307,11 @@ class OpenWakeWordDetector(WakeWordDetector):
         self._last_score_log_time = now
         formatted = ", ".join(f"{label}={float(score):.3f}" for label, score in predictions.items())
         LOGGER.info("openWakeWord 分数：%s", formatted)
+
+    def _rms_gate_description(self) -> str:
+        if self.rms_threshold <= 0:
+            return "off"
+        return f"{self.rms_threshold}x{self.rms_patience_frames}"
 
 
 def frame_sample_count(sample_rate: int, frame_ms: int) -> int:
@@ -315,6 +358,14 @@ def resample_pcm16_mono(samples: np.ndarray, *, source_rate: int, target_rate: i
     new_positions = np.linspace(0.0, 1.0, num=target_length, endpoint=False)
     resampled = np.interp(new_positions, old_positions, samples.astype(np.float32))
     return np.clip(np.rint(resampled), -32768, 32767).astype(np.int16)
+
+
+def pcm16_rms(samples: np.ndarray) -> int:
+    """Calculate RMS for mono int16 samples."""
+    if samples.size == 0:
+        return 0
+    float_samples = samples.astype(np.float32, copy=False)
+    return int(math.sqrt(float(np.mean(float_samples * float_samples))))
 
 
 def _string_list(value: Any) -> list[str]:

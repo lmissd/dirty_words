@@ -15,6 +15,7 @@ from modules.utils.errors import ConfigurationError
 from modules.wakeword.openwakeword_wakeword import (
     OpenWakeWordDetector,
     frame_sample_count,
+    pcm16_rms,
     pcm16_bytes_to_mono,
     resample_pcm16_mono,
 )
@@ -30,6 +31,32 @@ class FakeOpenWakeWordModel:
 
     def reset(self) -> None:
         self.reset_called = True
+
+
+class FailOnceForMissingVadModel:
+    def __init__(self) -> None:
+        self.calls: list[dict] = []
+
+    def __call__(self, **kwargs):
+        self.calls.append(dict(kwargs))
+        if len(self.calls) == 1:
+            raise RuntimeError(
+                "Load model from /tmp/silero_vad.onnx failed: File doesn't exist"
+            )
+        return FakeOpenWakeWordModel(**kwargs)
+
+
+class FailOnceForMissingSpeexThenVadModel:
+    def __init__(self) -> None:
+        self.calls: list[dict] = []
+
+    def __call__(self, **kwargs):
+        self.calls.append(dict(kwargs))
+        if len(self.calls) == 1:
+            raise ModuleNotFoundError("No module named 'speexdsp_ns'")
+        if len(self.calls) == 2:
+            raise RuntimeError("Load model from /tmp/silero_vad.onnx failed: File doesn't exist")
+        return FakeOpenWakeWordModel(**kwargs)
 
 
 class OpenWakeWordTests(unittest.TestCase):
@@ -51,6 +78,13 @@ class OpenWakeWordTests(unittest.TestCase):
         mono = pcm16_bytes_to_mono(stereo.tobytes(), channels=2)
 
         self.assertEqual(mono.tolist(), [200, -200])
+
+    def test_pcm16_rms_matches_expected_level(self) -> None:
+        samples = np.full(8, 300, dtype=np.int16)
+
+        rms = pcm16_rms(samples)
+
+        self.assertEqual(rms, 300)
 
     def test_missing_custom_model_has_clear_error(self) -> None:
         config = AppConfig(
@@ -120,6 +154,86 @@ class OpenWakeWordTests(unittest.TestCase):
 
         self.assertIsNone(first)
         self.assertEqual(second, "fantuan_fantuan")
+
+    def test_silence_gate_blocks_prediction_until_audio_energy_is_stable(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model_path = Path(temp_dir) / "fantuan_fantuan.onnx"
+            model_path.write_bytes(b"fake model")
+            config = AppConfig(
+                data={
+                    "wakeword": {
+                        "engine": "openwakeword",
+                        "model_paths": [str(model_path)],
+                        "rms_threshold": 200,
+                        "rms_patience_frames": 2,
+                    }
+                },
+                path=Path("config/config.example.yaml"),
+            )
+            detector = OpenWakeWordDetector(config, model_factory=FakeOpenWakeWordModel)
+
+            quiet = np.zeros(1280, dtype=np.int16)
+            speech = np.full(1280, 400, dtype=np.int16)
+
+            self.assertFalse(detector._should_process_frame(quiet))
+            self.assertFalse(detector._should_process_frame(speech))
+            self.assertTrue(detector._should_process_frame(speech))
+
+    def test_missing_vad_model_retries_with_vad_disabled(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model_path = Path(temp_dir) / "fantuan_fantuan.onnx"
+            model_path.write_bytes(b"fake model")
+            factory = FailOnceForMissingVadModel()
+            config = AppConfig(
+                data={
+                    "wakeword": {
+                        "engine": "openwakeword",
+                        "model_paths": [str(model_path)],
+                        "vad_enabled": True,
+                        "vad_threshold": 0.4,
+                        "noise_suppression_enabled": False,
+                    }
+                },
+                path=Path("config/config.example.yaml"),
+            )
+            detector = OpenWakeWordDetector(config, model_factory=factory)
+
+            model = detector._load_model()
+
+        self.assertIsInstance(model, FakeOpenWakeWordModel)
+        self.assertEqual(len(factory.calls), 2)
+        self.assertEqual(factory.calls[0]["vad_threshold"], 0.4)
+        self.assertEqual(factory.calls[1]["vad_threshold"], 0.0)
+
+    def test_missing_speex_then_vad_retries_through_both_fallbacks(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model_path = Path(temp_dir) / "fantuan_fantuan.onnx"
+            model_path.write_bytes(b"fake model")
+            factory = FailOnceForMissingSpeexThenVadModel()
+            config = AppConfig(
+                data={
+                    "wakeword": {
+                        "engine": "openwakeword",
+                        "model_paths": [str(model_path)],
+                        "vad_enabled": True,
+                        "vad_threshold": 0.4,
+                        "noise_suppression_enabled": True,
+                        "noise_suppression_fallback": True,
+                    }
+                },
+                path=Path("config/config.example.yaml"),
+            )
+            detector = OpenWakeWordDetector(config, model_factory=factory)
+
+            model = detector._load_model()
+
+        self.assertIsInstance(model, FakeOpenWakeWordModel)
+        self.assertEqual(len(factory.calls), 3)
+        self.assertTrue(factory.calls[0]["enable_speex_noise_suppression"])
+        self.assertFalse(factory.calls[1]["enable_speex_noise_suppression"])
+        self.assertEqual(factory.calls[1]["vad_threshold"], 0.4)
+        self.assertFalse(factory.calls[2]["enable_speex_noise_suppression"])
+        self.assertEqual(factory.calls[2]["vad_threshold"], 0.0)
 
     def test_app_factory_supports_openwakeword_engine(self) -> None:
         config = AppConfig(

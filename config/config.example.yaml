@@ -70,13 +70,15 @@ wakeword:
     - "models/openwakeword/fantuan_fantuan.onnx"
   target_labels:
     - "fantuan_fantuan"
-  threshold: 0.5
-  patience_frames: 1
-  debounce_seconds: 1.5
+  threshold: 0.78
+  patience_frames: 3
+  debounce_seconds: 2.5
+  rms_threshold: 180
+  rms_patience_frames: 2
   inference_framework: "onnx"
   allow_pretrained_models: false
   vad_enabled: true
-  vad_threshold: 0.35
+  vad_threshold: 0.55
   noise_suppression_enabled: true
   noise_suppression_fallback: true
   log_scores: false
@@ -85,11 +87,14 @@ wakeword:
 
 greeting:
   text: "小朋友你好"
+  tts_text: "小朋友，你好呀。"
+  enabled_in_main_flow: true
   use_prerecorded_audio: false
   audio_path: "assets/audio/greeting.wav"
 
 post_wake_speech:
   enabled: true
+  continuous_session: true
   timeout_seconds: 30
   sample_rate: 48000
   channels: 1
@@ -97,6 +102,8 @@ post_wake_speech:
   block_seconds: 0.25
   rms_threshold: 500
   required_blocks: 2
+  pre_roll_seconds: 1.0
+  error_pause_seconds: 1
 
 recording:
   engine: "sounddevice"
@@ -106,9 +113,12 @@ recording:
   device: "auto"
 
 speech_to_text:
-  provider: "static"
+  provider: "vosk"
   model: "gpt-4o-mini-transcribe"
   language: "zh"
+  model_path: "models/vosk-model-small-cn-0.22"
+  sample_rate: 16000
+  chunk_size: 4000
   static_text: "这是一段离线测试语音"
 
 llm:
@@ -117,18 +127,27 @@ llm:
   temperature: 0.2
   max_tokens: 500
 
+analysis:
+  remind_only_on_uncivilized: true
+
 tts:
   provider: "piper"
-  binary: "piper"
+  binary:
+    - "python"
+    - "-m"
+    - "piper"
   model_path: "models/piper/zh_CN-huayan-medium.onnx"
   model_config_path: "models/piper/zh_CN-huayan-medium.onnx.json"
   speaker: null
-  length_scale: null
-  noise_scale: null
-  noise_w: null
+  length_scale: 1.12
+  noise_scale: 0.82
+  noise_w: 0.95
+  sentence_silence: 0.18
+  volume: 1.0
+  no_normalize: false
   output_format: "wav"
   enabled: true
-  cache_enabled: true
+  cache_enabled: false
   command: null
   output_path: "recordings/piper_tts.wav"
   fallback_audio_path: "assets/audio/greeting.wav"
@@ -149,6 +168,7 @@ display:
 robot_animation:
   frame_dir: "assets/robot/fantuan_jump"
   duration_seconds: 10
+  frame_delay_seconds: 0.12
   final_frame: 7
   background_color: "#f7f3e8"
   text_color: "#1d2b2a"

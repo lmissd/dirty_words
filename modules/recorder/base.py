@@ -16,9 +16,19 @@ class RecordedAudio:
     sample_rate: int
 
 
+@dataclass(slots=True)
+class PcmAudioBuffer:
+    """Raw PCM audio captured before the main recording starts."""
+
+    data: bytes
+    sample_rate: int
+    channels: int
+    sample_width_bytes: int = 2
+
+
 class AudioRecorder(ABC):
     """Interface for audio recorders."""
 
     @abstractmethod
-    def record(self) -> RecordedAudio:
+    def record(self, pre_roll_audio: PcmAudioBuffer | None = None) -> RecordedAudio:
         """Record audio and return the generated file path."""
