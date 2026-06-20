@@ -15,6 +15,7 @@ class WakeMatcherConfig:
 
     display_wake_word: str
     wake_phrases: list[str]
+    strict_match: bool
     wake_aliases: list[str]
     fuzzy_enabled: bool
     fuzzy_threshold: float
@@ -30,6 +31,7 @@ class WakeMatcherConfig:
         return cls(
             display_wake_word=display,
             wake_phrases=wake_phrases,
+            strict_match=bool(config.get("wakeword.strict_match", False)),
             wake_aliases=_string_list(config.get("wakeword.wake_aliases", [])),
             fuzzy_enabled=bool(config.get("wakeword.fuzzy_enabled", True)),
             fuzzy_threshold=float(config.get("wakeword.fuzzy_threshold", 0.62)),
@@ -45,8 +47,17 @@ def match_wake_phrase(text: str, config: WakeMatcherConfig) -> str | None:
     if not normalized_text:
         return None
 
-    for phrase in [*config.wake_phrases, *config.wake_aliases]:
-        if normalize_text(phrase) in normalized_text:
+    for phrase in config.wake_phrases:
+        normalized_phrase = normalize_text(phrase)
+        if normalized_phrase and normalized_phrase in normalized_text:
+            return config.display_wake_word
+
+    if config.strict_match:
+        return None
+
+    for phrase in config.wake_aliases:
+        normalized_phrase = normalize_text(phrase)
+        if normalized_phrase and normalized_phrase in normalized_text:
             return config.display_wake_word
 
     if not config.fuzzy_enabled:

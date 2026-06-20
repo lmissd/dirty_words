@@ -58,17 +58,15 @@ wakeword:
   display_wake_word: "饭团饭团"
   wake_words:
     - "饭团饭团"
-  wake_aliases:
-    - "饭团"
-    - "饭团你好"
-  fuzzy_enabled: true
+  strict_match: true
+  wake_aliases: []
+  fuzzy_enabled: false
   fuzzy_threshold: 0.62
   require_greeting: false
   greeting_words:
     - "你好"
     - "你号"
-  subject_keywords:
-    - "饭团"
+  subject_keywords: []
   listen_seconds: 2.5
   idle_pause_seconds: 0.2
   input_sample_rate: 48000
